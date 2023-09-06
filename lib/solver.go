@@ -245,6 +245,40 @@ func (s *solver) decision() (string, bool, error) {
 		})
 	}
 
+	// Add optional dependencies in a deterministic order (alphabetical)
+	var optionalDeps []string
+	for dep := range chosenVersionData.OptionalDependencies {
+		optionalDeps = append(deps, dep)
+	}
+	slices.Sort(optionalDeps)
+	for _, dep := range optionalDeps {
+		constraint := chosenVersionData.OptionalDependencies[dep]
+		var versionsWithThisDependency []version.Version
+		for _, v := range versions {
+			if vDep, ok := v.OptionalDependencies[dep]; ok && constraint.Equal(vDep) {
+				versionsWithThisDependency = append(versionsWithThisDependency, v.Version)
+			}
+		}
+		s.addIncompatibility(&Incompatibility{
+			terms: map[string]term{
+				pkg: {
+					pkg:               pkg,
+					versionConstraint: version.NewConstraintFromVersionSubset(versionsWithThisDependency, availableVersions),
+					positive:          true,
+				},
+				dep: {
+					pkg: dep,
+					// A negative term is satisfied if the dependency exists with an incompatible version,
+					// or if the dependency does not exist at all.
+					// So we use a positive term with an inverse constraint instead,
+					// which is satisfied when the dependency exists with an incompatible version
+					versionConstraint: constraint.Inverse(),
+					positive:          true,
+				},
+			},
+		})
+	}
+
 	s.partialSolution.assignments = append(s.partialSolution.assignments, decision{
 		pkg:           t.pkg,
 		version:       chosenVersion,

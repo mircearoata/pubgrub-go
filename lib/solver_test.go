@@ -232,3 +232,176 @@ func TestSolver_BranchingErrorReporting(t *testing.T) {
 		t.Fatalf("expected error\n%s\n\ngot\n%s", expected, err.Error())
 	}
 }
+
+func TestSolver_OptionalDependencies_NoOptional(t *testing.T) {
+	source := mockSource{
+		packages: map[string][]PackageVersion{
+			"$$root$$": {
+				{
+					Version: newVersion("1.0.0"),
+					Dependencies: map[string]version.Constraint{
+						"foo": newConstraint("^1.0.0"),
+					},
+				},
+			},
+			"foo": {
+				{
+					Version: newVersion("1.0.0"),
+					OptionalDependencies: map[string]version.Constraint{
+						"baz": newConstraint("^1.0.0"),
+					},
+				},
+			},
+			"bar": {
+				{
+					Version: newVersion("1.0.0"),
+					Dependencies: map[string]version.Constraint{
+						"baz": newConstraint("^1.0.0"),
+					},
+				},
+				{
+					Version: newVersion("1.0.1"),
+					Dependencies: map[string]version.Constraint{
+						"baz": newConstraint("^2.0.0"),
+					},
+				},
+			},
+			"baz": {
+				{
+					Version: newVersion("1.0.0"),
+				},
+				{
+					Version: newVersion("2.0.0"),
+				},
+			},
+		},
+	}
+
+	result, err := Solve(source, "$$root$$")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	delete(result, "$$root$$")
+	expected := map[string]version.Version{
+		"foo": newVersion("1.0.0"),
+	}
+	if !maps.EqualFunc(result, expected, func(v version.Version, v2 version.Version) bool {
+		return v.Compare(v2) == 0
+	}) {
+		t.Fatalf("expected %s, got %s", expected, result)
+	}
+}
+
+func TestSolver_OptionalDependencies_CompatibleVersion(t *testing.T) {
+	source := mockSource{
+		packages: map[string][]PackageVersion{
+			"$$root$$": {
+				{
+					Version: newVersion("1.0.0"),
+					Dependencies: map[string]version.Constraint{
+						"foo": newConstraint("^1.0.0"),
+						"bar": newConstraint("^1.0.0"),
+					},
+				},
+			},
+			"foo": {
+				{
+					Version: newVersion("1.0.0"),
+					OptionalDependencies: map[string]version.Constraint{
+						"baz": newConstraint("^1.0.0"),
+					},
+				},
+			},
+			"bar": {
+				{
+					Version: newVersion("1.0.0"),
+					Dependencies: map[string]version.Constraint{
+						"baz": newConstraint("^1.0.0"),
+					},
+				},
+				{
+					Version: newVersion("1.0.1"),
+					Dependencies: map[string]version.Constraint{
+						"baz": newConstraint("^2.0.0"),
+					},
+				},
+			},
+			"baz": {
+				{
+					Version: newVersion("1.0.0"),
+				},
+				{
+					Version: newVersion("2.0.0"),
+				},
+			},
+		},
+	}
+
+	result, err := Solve(source, "$$root$$")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	delete(result, "$$root$$")
+	expected := map[string]version.Version{
+		"foo": newVersion("1.0.0"),
+		"bar": newVersion("1.0.0"),
+		"baz": newVersion("1.0.0"),
+	}
+	if !maps.EqualFunc(result, expected, func(v version.Version, v2 version.Version) bool {
+		return v.Compare(v2) == 0
+	}) {
+		t.Fatalf("expected %s, got %s", expected, result)
+	}
+}
+
+func TestSolver_OptionalDependencies_Error(t *testing.T) {
+	source := mockSource{
+		packages: map[string][]PackageVersion{
+			"$$root$$": {
+				{
+					Version: newVersion("1.0.0"),
+					Dependencies: map[string]version.Constraint{
+						"foo": newConstraint("^1.0.0"),
+						"bar": newConstraint("^1.0.0"),
+					},
+				},
+			},
+			"foo": {
+				{
+					Version: newVersion("1.0.0"),
+					OptionalDependencies: map[string]version.Constraint{
+						"baz": newConstraint("^1.0.0"),
+					},
+				},
+			},
+			"bar": {
+				{
+					Version: newVersion("1.0.0"),
+					Dependencies: map[string]version.Constraint{
+						"baz": newConstraint("^2.0.0"),
+					},
+				},
+			},
+			"baz": {
+				{
+					Version: newVersion("1.0.0"),
+				},
+				{
+					Version: newVersion("2.0.0"),
+				},
+			},
+		},
+	}
+
+	result, err := Solve(source, "$$root$$")
+	if err == nil {
+		delete(result, "$$root$$")
+		t.Fatalf("expected error, but resolved successfully: %s", result)
+	}
+	expected := "Because every version of bar depends on baz \"^2.0.0\" and every version of foo depends on baz \"^1.0.0\", every version of foo forbids bar.\nSo, because installing bar \"^1.0.0\", version solving failed."
+	if err.Error() != expected {
+		t.Fatalf("expected error\n%s\n\ngot\n%s", expected, err.Error())
+	}
+}

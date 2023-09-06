@@ -43,18 +43,29 @@ func (state *errorGenerationState) causeString(c *Incompatibility) string {
 		}
 		panic("negative term in cause")
 	}
-	var positive, negative term
+	var pkg, dep term
 	if terms[0].Positive() {
-		positive = terms[0]
-		negative = terms[1]
+		pkg = terms[0]
+		dep = terms[1]
 	} else {
-		positive = terms[1]
-		negative = terms[0]
+		pkg = terms[1]
+		dep = terms[0]
 	}
-	if positive.Dependency() == state.rootPkg {
-		return fmt.Sprintf("installing %s", negative.String())
+	if dep.Positive() {
+		// This is an optional dependency, which has a positive term, but with an inverse constraint
+		// We revert the constraint here to get the term in a similar format to the others
+		dep = term{pkg: dep.Dependency(), versionConstraint: dep.Constraint().Inverse(), positive: false}
 	}
-	return fmt.Sprintf("%s depends on %s", positive.String(), negative.String())
+	if pkg.Dependency() == state.rootPkg {
+		return fmt.Sprintf("installing %s", dep.String())
+	}
+	if dep.Constraint().IsEmpty() {
+		return fmt.Sprintf("%s forbids %s", pkg.String(), dep.Dependency())
+	}
+	if dep.Constraint().IsAny() {
+		return fmt.Sprintf("%s depends on %s", pkg.String(), dep.Dependency())
+	}
+	return fmt.Sprintf("%s depends on %s", pkg.String(), dep.String())
 }
 
 func writeErrorMessageRecursive(c *Incompatibility, state *errorGenerationState, isFirst bool) {
