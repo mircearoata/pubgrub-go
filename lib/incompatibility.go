@@ -37,7 +37,8 @@ func (in Incompatibility) relation(ps *partialSolution) (setRelation, *term) {
 	result := setRelationSatisfied
 	var unsatisfied term
 
-	// TODO: deterministic order
+	// The iteration order does not matter here,
+	// since for an almost satisfied relation there is a single inconclusive term
 	for _, t := range in.terms {
 		t2 := ps.get(t.pkg)
 		if t2 != nil {
