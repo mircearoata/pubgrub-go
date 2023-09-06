@@ -187,7 +187,7 @@ func (s *solver) decision() (string, bool, error) {
 		s.addIncompatibility(&Incompatibility{
 			terms: map[string]term{pkg: *t},
 		})
-		return pkg, false, errors.Wrap(err, "no versions available")
+		return pkg, false, nil
 	}
 
 	// Sort versions in ascending order
