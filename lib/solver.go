@@ -174,10 +174,15 @@ func (s *solver) decision() (string, bool, error) {
 		return pkg, false, errors.Wrap(err, "failed to get package versions")
 	}
 
-	compatibleVersions, err := s.source.GetPackageVersionsSatisfying(t.pkg, t.versionConstraint)
-	if err != nil {
-		return pkg, false, errors.Wrap(err, "failed to get package versions satisfying constraint")
+	var availableVersions []version.Version
+	var compatibleVersions []version.Version
+	for _, v := range versions {
+		availableVersions = append(availableVersions, v.Version)
+		if t.versionConstraint.Contains(v.Version) {
+			compatibleVersions = append(compatibleVersions, v.Version)
+		}
 	}
+
 	if len(versions) == 0 || len(compatibleVersions) == 0 {
 		s.addIncompatibility(&Incompatibility{
 			terms: map[string]term{pkg: *t},
@@ -186,7 +191,7 @@ func (s *solver) decision() (string, bool, error) {
 	}
 
 	// Sort versions in ascending order
-	slices.SortFunc(versions, func(a, b version.Version) int {
+	slices.SortFunc(availableVersions, func(a, b version.Version) int {
 		return a.Compare(b)
 	})
 
@@ -195,37 +200,41 @@ func (s *solver) decision() (string, bool, error) {
 		return b.Compare(a)
 	})
 
-	chosenVersion := compatibleVersions[0]
+	chosenVersion := s.source.PickVersion(t.pkg, compatibleVersions)
 
-	dependencies, err := s.source.GetPackageVersionDependencies(t.pkg, chosenVersion)
-	if err != nil {
-		return "", false, errors.Wrap(err, "failed to get package version dependencies")
+	if !slices.ContainsFunc(compatibleVersions, func(v version.Version) bool {
+		return v.Compare(chosenVersion) == 0
+	}) {
+		return pkg, false, errors.New("chosen version not compatible")
+	}
+
+	var chosenVersionData *PackageVersion
+	for _, v := range versions {
+		if v.Version.Compare(chosenVersion) == 0 {
+			chosenVersionData = &v
+			break
+		}
 	}
 
 	// Add dependencies in a deterministic order (alphabetical)
 	var deps []string
-	for dep := range dependencies {
+	for dep := range chosenVersionData.Dependencies {
 		deps = append(deps, dep)
 	}
 	slices.Sort(deps)
 	for _, dep := range deps {
-		constraint := dependencies[dep]
+		constraint := chosenVersionData.Dependencies[dep]
 		var versionsWithThisDependency []version.Version
 		for _, v := range versions {
-			vDeps, err := s.source.GetPackageVersionDependencies(pkg, v)
-			if err != nil {
-				return "", false, errors.Wrap(err, "failed to get package version dependencies")
-			}
-			vDep, ok := vDeps[dep]
-			if ok && constraint.Equal(vDep) {
-				versionsWithThisDependency = append(versionsWithThisDependency, v)
+			if vDep, ok := v.Dependencies[dep]; ok && constraint.Equal(vDep) {
+				versionsWithThisDependency = append(versionsWithThisDependency, v.Version)
 			}
 		}
 		s.addIncompatibility(&Incompatibility{
 			terms: map[string]term{
 				pkg: {
 					pkg:               pkg,
-					versionConstraint: version.NewConstraintFromVersionSubset(versionsWithThisDependency, versions),
+					versionConstraint: version.NewConstraintFromVersionSubset(versionsWithThisDependency, availableVersions),
 					positive:          true,
 				},
 				dep: {

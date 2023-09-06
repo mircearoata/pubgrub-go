@@ -8,48 +8,18 @@ import (
 )
 
 type mockSource struct {
-	packages map[string][]mockPackageVersion
+	packages map[string][]PackageVersion
 }
 
-type mockPackageVersion struct {
-	version version.Version
-	deps    map[string]version.Constraint
+func (s mockSource) GetPackageVersions(pkg string) ([]PackageVersion, error) {
+	if v, ok := s.packages[pkg]; ok {
+		return v, nil
+	}
+	return nil, errors.New("package not found")
 }
 
-func (s mockSource) GetPackageVersions(pkg string) ([]version.Version, error) {
-	if _, ok := s.packages[pkg]; !ok {
-		return nil, errors.New("package not found")
-	}
-	var result []version.Version
-	for _, v := range s.packages[pkg] {
-		result = append(result, v.version)
-	}
-	return result, nil
-}
-
-func (s mockSource) GetPackageVersionsSatisfying(pkg string, constraint version.Constraint) ([]version.Version, error) {
-	if _, ok := s.packages[pkg]; !ok {
-		return nil, errors.New("package not found")
-	}
-	var result []version.Version
-	for _, v := range s.packages[pkg] {
-		if constraint.Contains(v.version) {
-			result = append(result, v.version)
-		}
-	}
-	return result, nil
-}
-
-func (s mockSource) GetPackageVersionDependencies(pkg string, version version.Version) (map[string]version.Constraint, error) {
-	if _, ok := s.packages[pkg]; !ok {
-		return nil, errors.New("package not found")
-	}
-	for _, v := range s.packages[pkg] {
-		if v.version.Compare(version) == 0 {
-			return v.deps, nil
-		}
-	}
-	return nil, errors.New("version not found")
+func (s mockSource) PickVersion(_ string, versions []version.Version) version.Version {
+	return versions[len(versions)-1]
 }
 
 func newVersion(v string) version.Version {
@@ -64,11 +34,11 @@ func newConstraint(c string) version.Constraint {
 
 func TestSolver_ConflictResolutionWithPartialSatisfier(t *testing.T) {
 	source := mockSource{
-		packages: map[string][]mockPackageVersion{
+		packages: map[string][]PackageVersion{
 			"$$root$$": {
 				{
-					version: newVersion("1.0.0"),
-					deps: map[string]version.Constraint{
+					Version: newVersion("1.0.0"),
+					Dependencies: map[string]version.Constraint{
 						"foo":    newConstraint("^1.0.0"),
 						"target": newConstraint("^2.0.0"),
 					},
@@ -76,49 +46,49 @@ func TestSolver_ConflictResolutionWithPartialSatisfier(t *testing.T) {
 			},
 			"foo": {
 				{
-					version: newVersion("1.1.0"),
-					deps: map[string]version.Constraint{
+					Version: newVersion("1.1.0"),
+					Dependencies: map[string]version.Constraint{
 						"left":  newConstraint("^1.0.0"),
 						"right": newConstraint("^1.0.0"),
 					},
 				},
 				{
-					version: newVersion("1.0.0"),
+					Version: newVersion("1.0.0"),
 				},
 			},
 			"left": {
 				{
-					version: newVersion("1.0.0"),
-					deps: map[string]version.Constraint{
+					Version: newVersion("1.0.0"),
+					Dependencies: map[string]version.Constraint{
 						"shared": newConstraint(">=1.0.0"),
 					},
 				},
 			},
 			"right": {
 				{
-					version: newVersion("1.0.0"),
-					deps: map[string]version.Constraint{
+					Version: newVersion("1.0.0"),
+					Dependencies: map[string]version.Constraint{
 						"shared": newConstraint("<2.0.0"),
 					},
 				},
 			},
 			"shared": {
 				{
-					version: newVersion("2.0.0"),
+					Version: newVersion("2.0.0"),
 				},
 				{
-					version: newVersion("1.0.0"),
-					deps: map[string]version.Constraint{
+					Version: newVersion("1.0.0"),
+					Dependencies: map[string]version.Constraint{
 						"target": newConstraint("^1.0.0"),
 					},
 				},
 			},
 			"target": {
 				{
-					version: newVersion("2.0.0"),
+					Version: newVersion("2.0.0"),
 				},
 				{
-					version: newVersion("1.0.0"),
+					Version: newVersion("1.0.0"),
 				},
 			},
 		},
@@ -142,11 +112,11 @@ func TestSolver_ConflictResolutionWithPartialSatisfier(t *testing.T) {
 
 func TestSolver_LinearErrorReporting(t *testing.T) {
 	source := mockSource{
-		packages: map[string][]mockPackageVersion{
+		packages: map[string][]PackageVersion{
 			"$$root$$": {
 				{
-					version: newVersion("1.0.0"),
-					deps: map[string]version.Constraint{
+					Version: newVersion("1.0.0"),
+					Dependencies: map[string]version.Constraint{
 						"foo": newConstraint("^1.0.0"),
 						"baz": newConstraint("^1.0.0"),
 					},
@@ -154,26 +124,26 @@ func TestSolver_LinearErrorReporting(t *testing.T) {
 			},
 			"foo": {
 				{
-					version: newVersion("1.0.0"),
-					deps: map[string]version.Constraint{
+					Version: newVersion("1.0.0"),
+					Dependencies: map[string]version.Constraint{
 						"bar": newConstraint("^2.0.0"),
 					},
 				},
 			},
 			"bar": {
 				{
-					version: newVersion("2.0.0"),
-					deps: map[string]version.Constraint{
+					Version: newVersion("2.0.0"),
+					Dependencies: map[string]version.Constraint{
 						"baz": newConstraint("^3.0.0"),
 					},
 				},
 			},
 			"baz": {
 				{
-					version: newVersion("1.0.0"),
+					Version: newVersion("1.0.0"),
 				},
 				{
-					version: newVersion("3.0.0"),
+					Version: newVersion("3.0.0"),
 				},
 			},
 		},
@@ -192,26 +162,26 @@ func TestSolver_LinearErrorReporting(t *testing.T) {
 
 func TestSolver_BranchingErrorReporting(t *testing.T) {
 	source := mockSource{
-		packages: map[string][]mockPackageVersion{
+		packages: map[string][]PackageVersion{
 			"$$root$$": {
 				{
-					version: newVersion("1.0.0"),
-					deps: map[string]version.Constraint{
+					Version: newVersion("1.0.0"),
+					Dependencies: map[string]version.Constraint{
 						"foo": newConstraint("^1.0.0"),
 					},
 				},
 			},
 			"foo": {
 				{
-					version: newVersion("1.0.0"),
-					deps: map[string]version.Constraint{
+					Version: newVersion("1.0.0"),
+					Dependencies: map[string]version.Constraint{
 						"a": newConstraint("^1.0.0"),
 						"b": newConstraint("^1.0.0"),
 					},
 				},
 				{
-					version: newVersion("1.1.0"),
-					deps: map[string]version.Constraint{
+					Version: newVersion("1.1.0"),
+					Dependencies: map[string]version.Constraint{
 						"x": newConstraint("^1.0.0"),
 						"y": newConstraint("^1.0.0"),
 					},
@@ -219,34 +189,34 @@ func TestSolver_BranchingErrorReporting(t *testing.T) {
 			},
 			"a": {
 				{
-					version: newVersion("1.0.0"),
-					deps: map[string]version.Constraint{
+					Version: newVersion("1.0.0"),
+					Dependencies: map[string]version.Constraint{
 						"b": newConstraint("^2.0.0"),
 					},
 				},
 			},
 			"b": {
 				{
-					version: newVersion("1.0.0"),
+					Version: newVersion("1.0.0"),
 				},
 				{
-					version: newVersion("2.0.0"),
+					Version: newVersion("2.0.0"),
 				},
 			},
 			"x": {
 				{
-					version: newVersion("1.0.0"),
-					deps: map[string]version.Constraint{
+					Version: newVersion("1.0.0"),
+					Dependencies: map[string]version.Constraint{
 						"y": newConstraint("^2.0.0"),
 					},
 				},
 			},
 			"y": {
 				{
-					version: newVersion("1.0.0"),
+					Version: newVersion("1.0.0"),
 				},
 				{
-					version: newVersion("2.0.0"),
+					Version: newVersion("2.0.0"),
 				},
 			},
 		},
