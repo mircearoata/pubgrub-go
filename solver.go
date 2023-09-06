@@ -230,6 +230,9 @@ func (s *solver) decision() (string, bool, error) {
 				versionsWithThisDependency = append(versionsWithThisDependency, v.Version)
 			}
 		}
+		slices.SortFunc(versionsWithThisDependency, func(a, b semver.Version) int {
+			return a.Compare(b)
+		})
 		s.addIncompatibility(&Incompatibility{
 			terms: map[string]term{
 				pkg: {
@@ -259,6 +262,9 @@ func (s *solver) decision() (string, bool, error) {
 				versionsWithThisDependency = append(versionsWithThisDependency, v.Version)
 			}
 		}
+		slices.SortFunc(versionsWithThisDependency, func(a, b semver.Version) int {
+			return a.Compare(b)
+		})
 		s.addIncompatibility(&Incompatibility{
 			terms: map[string]term{
 				pkg: {
