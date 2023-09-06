@@ -332,34 +332,36 @@ func (v versionRange) String() string {
 	if v.upperBound == nil && v.lowerBound == nil {
 		return "*"
 	}
-	if v.upperBound != nil && v.lowerBound != nil {
+	if v.upperBound != nil && v.lowerBound != nil && v.lowerInclusive {
 		// Shorthand for exact version
 		if v.upperBound.Compare(*v.lowerBound) == 0 {
 			return v.lowerBound.String()
 		}
 
-		// Shorthand for caret version
-		var nextCaretVersion Version
-		if v.lowerBound.major != 0 {
-			nextCaretVersion = v.lowerBound.bumpMajor()
-		} else if v.lowerBound.minor != 0 {
-			nextCaretVersion = v.lowerBound.bumpMinor()
-		} else if v.lowerBound.patch != 0 {
-			nextCaretVersion = v.lowerBound.bumpPatch()
-		}
-		if v.upperBound.Compare(nextCaretVersion) == 0 {
-			return "^" + v.lowerBound.String()
-		}
+		if !v.upperInclusive {
+			// Shorthand for caret version
+			var nextCaretVersion Version
+			if v.lowerBound.major != 0 {
+				nextCaretVersion = v.lowerBound.bumpMajor()
+			} else if v.lowerBound.minor != 0 {
+				nextCaretVersion = v.lowerBound.bumpMinor()
+			} else if v.lowerBound.patch != 0 {
+				nextCaretVersion = v.lowerBound.bumpPatch()
+			}
+			if v.upperBound.Compare(nextCaretVersion) == 0 {
+				return "^" + v.lowerBound.String()
+			}
 
-		// Shorthand for tilde version
-		var nextTildeVersion Version
-		if v.lowerBound.minor != 0 {
-			nextTildeVersion = v.lowerBound.bumpMinor()
-		} else {
-			nextTildeVersion = v.lowerBound.bumpMajor()
-		}
-		if v.upperBound.Compare(nextTildeVersion) == 0 {
-			return "~" + v.lowerBound.String()
+			// Shorthand for tilde version
+			var nextTildeVersion Version
+			if v.lowerBound.minor != 0 {
+				nextTildeVersion = v.lowerBound.bumpMinor()
+			} else {
+				nextTildeVersion = v.lowerBound.bumpMajor()
+			}
+			if v.upperBound.Compare(nextTildeVersion) == 0 {
+				return "~" + v.lowerBound.String()
+			}
 		}
 	}
 	raw := ""

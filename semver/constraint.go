@@ -206,15 +206,15 @@ func (v Constraint) canonical() Constraint {
 			if a.isInclusive != b.isInclusive {
 				if a.isUpper {
 					if a.isInclusive {
-						return -1
-					} else {
 						return 1
+					} else {
+						return -1
 					}
 				} else {
 					if a.isInclusive {
-						return 1
-					} else {
 						return -1
+					} else {
+						return 1
 					}
 				}
 			}
