@@ -361,7 +361,7 @@ func (v Constraint) Inverse() Constraint {
 	}
 	result := v.ranges[0].Inverse()
 	for _, r := range v.ranges {
-		result = result.Union(r.Inverse())
+		result = result.Intersect(r.Inverse())
 	}
 	return result.canonical()
 }
