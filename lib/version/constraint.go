@@ -366,6 +366,10 @@ func (v Constraint) Inverse() Constraint {
 	return result.canonical()
 }
 
+func (v Constraint) IsAny() bool {
+	return len(v.ranges) == 1 && v.ranges[0].Equal(rangeAny)
+}
+
 func (v Constraint) String() string {
 	var rangeStrings []string
 	for _, r := range v.ranges {

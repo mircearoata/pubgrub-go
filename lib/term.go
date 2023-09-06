@@ -107,7 +107,7 @@ func (t term) compatibleDependency(other string) bool {
 }
 
 func (t term) String() string {
-	if t.versionConstraint.Inverse().IsEmpty() {
+	if t.versionConstraint.IsAny() {
 		return fmt.Sprintf("every version of %s", t.pkg)
 	}
 	return fmt.Sprintf("%s \"%s\"", t.pkg, t.versionConstraint)

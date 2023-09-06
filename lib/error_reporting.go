@@ -36,8 +36,7 @@ func (state *errorGenerationState) causeString(c *Incompatibility) string {
 			if t.Dependency() == state.rootPkg {
 				return "version solving failed"
 			}
-			if t.Constraint().Inverse().IsEmpty() {
-				// Checking if the constraint is "any"
+			if t.Constraint().IsAny() {
 				return fmt.Sprintf("%s is forbidden", t.Dependency())
 			}
 			return fmt.Sprintf("%s is forbidden", t.String())
