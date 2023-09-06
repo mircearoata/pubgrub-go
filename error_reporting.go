@@ -196,7 +196,7 @@ func writeErrorMessageRecursive(c *Incompatibility, state *errorGenerationState,
 
 		writeErrorMessageRecursive(derived, state, false)
 		if isFirst {
-			state.writeLine(fmt.Sprintf("And because %s, %s.", state.causeString(external), state.causeString(c)))
+			state.writeLine(fmt.Sprintf("So, because %s, %s.", state.causeString(external), state.causeString(c)))
 		} else {
 			state.writeLine(fmt.Sprintf("And because %s, %s.", state.causeString(external), state.causeString(c)))
 		}
