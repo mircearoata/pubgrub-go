@@ -1,7 +1,7 @@
 package pubgrub
 
 import (
-	"github.com/mircearoata/pubgrub-go/version"
+	"github.com/mircearoata/pubgrub-go/semver"
 	"github.com/pkg/errors"
 	"maps"
 	"testing"
@@ -18,17 +18,17 @@ func (s mockSource) GetPackageVersions(pkg string) ([]PackageVersion, error) {
 	return nil, errors.New("package not found")
 }
 
-func (s mockSource) PickVersion(_ string, versions []version.Version) version.Version {
+func (s mockSource) PickVersion(_ string, versions []semver.Version) semver.Version {
 	return versions[len(versions)-1]
 }
 
-func newVersion(v string) version.Version {
-	result, _ := version.NewVersion(v)
+func newVersion(v string) semver.Version {
+	result, _ := semver.NewVersion(v)
 	return *result
 }
 
-func newConstraint(c string) version.Constraint {
-	result, _ := version.NewConstraint(c)
+func newConstraint(c string) semver.Constraint {
+	result, _ := semver.NewConstraint(c)
 	return result
 }
 
@@ -38,7 +38,7 @@ func TestSolver_ConflictResolutionWithPartialSatisfier(t *testing.T) {
 			"$$root$$": {
 				{
 					Version: newVersion("1.0.0"),
-					Dependencies: map[string]version.Constraint{
+					Dependencies: map[string]semver.Constraint{
 						"foo":    newConstraint("^1.0.0"),
 						"target": newConstraint("^2.0.0"),
 					},
@@ -47,7 +47,7 @@ func TestSolver_ConflictResolutionWithPartialSatisfier(t *testing.T) {
 			"foo": {
 				{
 					Version: newVersion("1.1.0"),
-					Dependencies: map[string]version.Constraint{
+					Dependencies: map[string]semver.Constraint{
 						"left":  newConstraint("^1.0.0"),
 						"right": newConstraint("^1.0.0"),
 					},
@@ -59,7 +59,7 @@ func TestSolver_ConflictResolutionWithPartialSatisfier(t *testing.T) {
 			"left": {
 				{
 					Version: newVersion("1.0.0"),
-					Dependencies: map[string]version.Constraint{
+					Dependencies: map[string]semver.Constraint{
 						"shared": newConstraint(">=1.0.0"),
 					},
 				},
@@ -67,7 +67,7 @@ func TestSolver_ConflictResolutionWithPartialSatisfier(t *testing.T) {
 			"right": {
 				{
 					Version: newVersion("1.0.0"),
-					Dependencies: map[string]version.Constraint{
+					Dependencies: map[string]semver.Constraint{
 						"shared": newConstraint("<2.0.0"),
 					},
 				},
@@ -78,7 +78,7 @@ func TestSolver_ConflictResolutionWithPartialSatisfier(t *testing.T) {
 				},
 				{
 					Version: newVersion("1.0.0"),
-					Dependencies: map[string]version.Constraint{
+					Dependencies: map[string]semver.Constraint{
 						"target": newConstraint("^1.0.0"),
 					},
 				},
@@ -99,11 +99,11 @@ func TestSolver_ConflictResolutionWithPartialSatisfier(t *testing.T) {
 		t.Fatal(err)
 	}
 	delete(result, "$$root$$")
-	expected := map[string]version.Version{
+	expected := map[string]semver.Version{
 		"foo":    newVersion("1.0.0"),
 		"target": newVersion("2.0.0"),
 	}
-	if !maps.EqualFunc(result, expected, func(v version.Version, v2 version.Version) bool {
+	if !maps.EqualFunc(result, expected, func(v semver.Version, v2 semver.Version) bool {
 		return v.Compare(v2) == 0
 	}) {
 		t.Fatalf("expected %s, got %s", expected, result)
@@ -116,7 +116,7 @@ func TestSolver_LinearErrorReporting(t *testing.T) {
 			"$$root$$": {
 				{
 					Version: newVersion("1.0.0"),
-					Dependencies: map[string]version.Constraint{
+					Dependencies: map[string]semver.Constraint{
 						"foo": newConstraint("^1.0.0"),
 						"baz": newConstraint("^1.0.0"),
 					},
@@ -125,7 +125,7 @@ func TestSolver_LinearErrorReporting(t *testing.T) {
 			"foo": {
 				{
 					Version: newVersion("1.0.0"),
-					Dependencies: map[string]version.Constraint{
+					Dependencies: map[string]semver.Constraint{
 						"bar": newConstraint("^2.0.0"),
 					},
 				},
@@ -133,7 +133,7 @@ func TestSolver_LinearErrorReporting(t *testing.T) {
 			"bar": {
 				{
 					Version: newVersion("2.0.0"),
-					Dependencies: map[string]version.Constraint{
+					Dependencies: map[string]semver.Constraint{
 						"baz": newConstraint("^3.0.0"),
 					},
 				},
@@ -166,7 +166,7 @@ func TestSolver_BranchingErrorReporting(t *testing.T) {
 			"$$root$$": {
 				{
 					Version: newVersion("1.0.0"),
-					Dependencies: map[string]version.Constraint{
+					Dependencies: map[string]semver.Constraint{
 						"foo": newConstraint("^1.0.0"),
 					},
 				},
@@ -174,14 +174,14 @@ func TestSolver_BranchingErrorReporting(t *testing.T) {
 			"foo": {
 				{
 					Version: newVersion("1.0.0"),
-					Dependencies: map[string]version.Constraint{
+					Dependencies: map[string]semver.Constraint{
 						"a": newConstraint("^1.0.0"),
 						"b": newConstraint("^1.0.0"),
 					},
 				},
 				{
 					Version: newVersion("1.1.0"),
-					Dependencies: map[string]version.Constraint{
+					Dependencies: map[string]semver.Constraint{
 						"x": newConstraint("^1.0.0"),
 						"y": newConstraint("^1.0.0"),
 					},
@@ -190,7 +190,7 @@ func TestSolver_BranchingErrorReporting(t *testing.T) {
 			"a": {
 				{
 					Version: newVersion("1.0.0"),
-					Dependencies: map[string]version.Constraint{
+					Dependencies: map[string]semver.Constraint{
 						"b": newConstraint("^2.0.0"),
 					},
 				},
@@ -206,7 +206,7 @@ func TestSolver_BranchingErrorReporting(t *testing.T) {
 			"x": {
 				{
 					Version: newVersion("1.0.0"),
-					Dependencies: map[string]version.Constraint{
+					Dependencies: map[string]semver.Constraint{
 						"y": newConstraint("^2.0.0"),
 					},
 				},
@@ -239,7 +239,7 @@ func TestSolver_OptionalDependencies_NoOptional(t *testing.T) {
 			"$$root$$": {
 				{
 					Version: newVersion("1.0.0"),
-					Dependencies: map[string]version.Constraint{
+					Dependencies: map[string]semver.Constraint{
 						"foo": newConstraint("^1.0.0"),
 					},
 				},
@@ -247,7 +247,7 @@ func TestSolver_OptionalDependencies_NoOptional(t *testing.T) {
 			"foo": {
 				{
 					Version: newVersion("1.0.0"),
-					OptionalDependencies: map[string]version.Constraint{
+					OptionalDependencies: map[string]semver.Constraint{
 						"baz": newConstraint("^1.0.0"),
 					},
 				},
@@ -255,13 +255,13 @@ func TestSolver_OptionalDependencies_NoOptional(t *testing.T) {
 			"bar": {
 				{
 					Version: newVersion("1.0.0"),
-					Dependencies: map[string]version.Constraint{
+					Dependencies: map[string]semver.Constraint{
 						"baz": newConstraint("^1.0.0"),
 					},
 				},
 				{
 					Version: newVersion("1.0.1"),
-					Dependencies: map[string]version.Constraint{
+					Dependencies: map[string]semver.Constraint{
 						"baz": newConstraint("^2.0.0"),
 					},
 				},
@@ -283,10 +283,10 @@ func TestSolver_OptionalDependencies_NoOptional(t *testing.T) {
 	}
 
 	delete(result, "$$root$$")
-	expected := map[string]version.Version{
+	expected := map[string]semver.Version{
 		"foo": newVersion("1.0.0"),
 	}
-	if !maps.EqualFunc(result, expected, func(v version.Version, v2 version.Version) bool {
+	if !maps.EqualFunc(result, expected, func(v semver.Version, v2 semver.Version) bool {
 		return v.Compare(v2) == 0
 	}) {
 		t.Fatalf("expected %s, got %s", expected, result)
@@ -299,7 +299,7 @@ func TestSolver_OptionalDependencies_CompatibleVersion(t *testing.T) {
 			"$$root$$": {
 				{
 					Version: newVersion("1.0.0"),
-					Dependencies: map[string]version.Constraint{
+					Dependencies: map[string]semver.Constraint{
 						"foo": newConstraint("^1.0.0"),
 						"bar": newConstraint("^1.0.0"),
 					},
@@ -308,7 +308,7 @@ func TestSolver_OptionalDependencies_CompatibleVersion(t *testing.T) {
 			"foo": {
 				{
 					Version: newVersion("1.0.0"),
-					OptionalDependencies: map[string]version.Constraint{
+					OptionalDependencies: map[string]semver.Constraint{
 						"baz": newConstraint("^1.0.0"),
 					},
 				},
@@ -316,13 +316,13 @@ func TestSolver_OptionalDependencies_CompatibleVersion(t *testing.T) {
 			"bar": {
 				{
 					Version: newVersion("1.0.0"),
-					Dependencies: map[string]version.Constraint{
+					Dependencies: map[string]semver.Constraint{
 						"baz": newConstraint("^1.0.0"),
 					},
 				},
 				{
 					Version: newVersion("1.0.1"),
-					Dependencies: map[string]version.Constraint{
+					Dependencies: map[string]semver.Constraint{
 						"baz": newConstraint("^2.0.0"),
 					},
 				},
@@ -344,12 +344,12 @@ func TestSolver_OptionalDependencies_CompatibleVersion(t *testing.T) {
 	}
 
 	delete(result, "$$root$$")
-	expected := map[string]version.Version{
+	expected := map[string]semver.Version{
 		"foo": newVersion("1.0.0"),
 		"bar": newVersion("1.0.0"),
 		"baz": newVersion("1.0.0"),
 	}
-	if !maps.EqualFunc(result, expected, func(v version.Version, v2 version.Version) bool {
+	if !maps.EqualFunc(result, expected, func(v semver.Version, v2 semver.Version) bool {
 		return v.Compare(v2) == 0
 	}) {
 		t.Fatalf("expected %s, got %s", expected, result)
@@ -362,7 +362,7 @@ func TestSolver_OptionalDependencies_Error(t *testing.T) {
 			"$$root$$": {
 				{
 					Version: newVersion("1.0.0"),
-					Dependencies: map[string]version.Constraint{
+					Dependencies: map[string]semver.Constraint{
 						"foo": newConstraint("^1.0.0"),
 						"bar": newConstraint("^1.0.0"),
 					},
@@ -371,7 +371,7 @@ func TestSolver_OptionalDependencies_Error(t *testing.T) {
 			"foo": {
 				{
 					Version: newVersion("1.0.0"),
-					OptionalDependencies: map[string]version.Constraint{
+					OptionalDependencies: map[string]semver.Constraint{
 						"baz": newConstraint("^1.0.0"),
 					},
 				},
@@ -379,7 +379,7 @@ func TestSolver_OptionalDependencies_Error(t *testing.T) {
 			"bar": {
 				{
 					Version: newVersion("1.0.0"),
-					Dependencies: map[string]version.Constraint{
+					Dependencies: map[string]semver.Constraint{
 						"baz": newConstraint("^2.0.0"),
 					},
 				},

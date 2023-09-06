@@ -2,12 +2,12 @@ package pubgrub
 
 import (
 	"fmt"
-	"github.com/mircearoata/pubgrub-go/version"
+	"github.com/mircearoata/pubgrub-go/semver"
 )
 
 type term struct {
 	pkg               string
-	versionConstraint version.Constraint
+	versionConstraint semver.Constraint
 	positive          bool
 }
 
@@ -27,7 +27,7 @@ func (t term) Dependency() string {
 	return t.pkg
 }
 
-func (t term) Constraint() version.Constraint {
+func (t term) Constraint() semver.Constraint {
 	return t.versionConstraint
 }
 

@@ -1,7 +1,7 @@
 package pubgrub
 
 import (
-	"github.com/mircearoata/pubgrub-go/version"
+	"github.com/mircearoata/pubgrub-go/semver"
 )
 import "slices"
 
@@ -30,7 +30,7 @@ func (d derivation) DecisionLevel() int {
 
 type decision struct {
 	pkg           string
-	version       version.Version
+	version       semver.Version
 	decisionLevel int
 }
 
@@ -49,7 +49,7 @@ func (ps *partialSolution) get(pkg string) *term {
 			if dec, ok := a.(decision); ok {
 				return &term{
 					pkg:               dec.pkg,
-					versionConstraint: version.SingleVersionConstraint(dec.version),
+					versionConstraint: semver.SingleVersionConstraint(dec.version),
 					positive:          true,
 				}
 			}
@@ -109,8 +109,8 @@ func (ps *partialSolution) findPositiveUndecided() string {
 	return ""
 }
 
-func (ps *partialSolution) decisionsMap() map[string]version.Version {
-	result := map[string]version.Version{}
+func (ps *partialSolution) decisionsMap() map[string]semver.Version {
+	result := map[string]semver.Version{}
 	for _, a := range ps.assignments {
 		if dec, ok := a.(decision); ok {
 			result[dec.pkg] = dec.version

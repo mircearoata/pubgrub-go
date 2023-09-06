@@ -1,4 +1,4 @@
-package version
+package semver
 
 import (
 	"github.com/pkg/errors"

@@ -1,8 +1,8 @@
 package pubgrub
 
 import (
+	"github.com/mircearoata/pubgrub-go/semver"
 	"github.com/mircearoata/pubgrub-go/util"
-	"github.com/mircearoata/pubgrub-go/version"
 	"github.com/pkg/errors"
 	"maps"
 	"slices"
@@ -16,7 +16,7 @@ type solver struct {
 	source Source
 }
 
-func Solve(source Source, rootPkg string) (map[string]version.Version, error) {
+func Solve(source Source, rootPkg string) (map[string]semver.Version, error) {
 	s := solver{
 		source:  source,
 		rootPkg: rootPkg,
@@ -25,7 +25,7 @@ func Solve(source Source, rootPkg string) (map[string]version.Version, error) {
 				terms: map[string]term{
 					rootPkg: {
 						pkg:               rootPkg,
-						versionConstraint: version.AnyConstraint,
+						versionConstraint: semver.AnyConstraint,
 						positive:          false,
 					},
 				},
@@ -174,8 +174,8 @@ func (s *solver) decision() (string, bool, error) {
 		return pkg, false, errors.Wrap(err, "failed to get package versions")
 	}
 
-	var availableVersions []version.Version
-	var compatibleVersions []version.Version
+	var availableVersions []semver.Version
+	var compatibleVersions []semver.Version
 	for _, v := range versions {
 		availableVersions = append(availableVersions, v.Version)
 		if t.versionConstraint.Contains(v.Version) {
@@ -191,18 +191,18 @@ func (s *solver) decision() (string, bool, error) {
 	}
 
 	// Sort versions in ascending order
-	slices.SortFunc(availableVersions, func(a, b version.Version) int {
+	slices.SortFunc(availableVersions, func(a, b semver.Version) int {
 		return a.Compare(b)
 	})
 
 	// Sort compatible versions in descending order
-	slices.SortFunc(compatibleVersions, func(a, b version.Version) int {
+	slices.SortFunc(compatibleVersions, func(a, b semver.Version) int {
 		return b.Compare(a)
 	})
 
 	chosenVersion := s.source.PickVersion(t.pkg, compatibleVersions)
 
-	if !slices.ContainsFunc(compatibleVersions, func(v version.Version) bool {
+	if !slices.ContainsFunc(compatibleVersions, func(v semver.Version) bool {
 		return v.Compare(chosenVersion) == 0
 	}) {
 		return pkg, false, errors.New("chosen version not compatible")
@@ -224,7 +224,7 @@ func (s *solver) decision() (string, bool, error) {
 	slices.Sort(deps)
 	for _, dep := range deps {
 		constraint := chosenVersionData.Dependencies[dep]
-		var versionsWithThisDependency []version.Version
+		var versionsWithThisDependency []semver.Version
 		for _, v := range versions {
 			if vDep, ok := v.Dependencies[dep]; ok && constraint.Equal(vDep) {
 				versionsWithThisDependency = append(versionsWithThisDependency, v.Version)
@@ -234,7 +234,7 @@ func (s *solver) decision() (string, bool, error) {
 			terms: map[string]term{
 				pkg: {
 					pkg:               pkg,
-					versionConstraint: version.NewConstraintFromVersionSubset(versionsWithThisDependency, availableVersions),
+					versionConstraint: semver.NewConstraintFromVersionSubset(versionsWithThisDependency, availableVersions),
 					positive:          true,
 				},
 				dep: {
@@ -253,7 +253,7 @@ func (s *solver) decision() (string, bool, error) {
 	slices.Sort(optionalDeps)
 	for _, dep := range optionalDeps {
 		constraint := chosenVersionData.OptionalDependencies[dep]
-		var versionsWithThisDependency []version.Version
+		var versionsWithThisDependency []semver.Version
 		for _, v := range versions {
 			if vDep, ok := v.OptionalDependencies[dep]; ok && constraint.Equal(vDep) {
 				versionsWithThisDependency = append(versionsWithThisDependency, v.Version)
@@ -263,7 +263,7 @@ func (s *solver) decision() (string, bool, error) {
 			terms: map[string]term{
 				pkg: {
 					pkg:               pkg,
-					versionConstraint: version.NewConstraintFromVersionSubset(versionsWithThisDependency, availableVersions),
+					versionConstraint: semver.NewConstraintFromVersionSubset(versionsWithThisDependency, availableVersions),
 					positive:          true,
 				},
 				dep: {

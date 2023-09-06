@@ -1,16 +1,16 @@
 package pubgrub
 
 import (
-	"github.com/mircearoata/pubgrub-go/version"
+	"github.com/mircearoata/pubgrub-go/semver"
 )
 
 type PackageVersion struct {
-	Version              version.Version
-	Dependencies         map[string]version.Constraint
-	OptionalDependencies map[string]version.Constraint
+	Version              semver.Version
+	Dependencies         map[string]semver.Constraint
+	OptionalDependencies map[string]semver.Constraint
 }
 
 type Source interface {
 	GetPackageVersions(pkg string) ([]PackageVersion, error)
-	PickVersion(pkg string, version []version.Version) version.Version
+	PickVersion(pkg string, version []semver.Version) semver.Version
 }
