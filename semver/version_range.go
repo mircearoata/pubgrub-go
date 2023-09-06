@@ -342,11 +342,9 @@ func (v versionRange) String() string {
 		var nextCaretVersion Version
 		if v.lowerBound.major != 0 {
 			nextCaretVersion = v.lowerBound.bumpMajor()
-		}
-		if v.lowerBound.minor != 0 {
+		} else if v.lowerBound.minor != 0 {
 			nextCaretVersion = v.lowerBound.bumpMinor()
-		}
-		if v.lowerBound.patch != 0 {
+		} else if v.lowerBound.patch != 0 {
 			nextCaretVersion = v.lowerBound.bumpPatch()
 		}
 		if v.upperBound.Compare(nextCaretVersion) == 0 {
