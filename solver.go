@@ -1,8 +1,8 @@
-package lib
+package pubgrub
 
 import (
-	"github.com/mircearoata/pubgrub-go/lib/util"
-	"github.com/mircearoata/pubgrub-go/lib/version"
+	"github.com/mircearoata/pubgrub-go/util"
+	"github.com/mircearoata/pubgrub-go/version"
 	"github.com/pkg/errors"
 	"maps"
 	"slices"

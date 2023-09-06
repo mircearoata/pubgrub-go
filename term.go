@@ -1,8 +1,8 @@
-package lib
+package pubgrub
 
 import (
 	"fmt"
-	"github.com/mircearoata/pubgrub-go/lib/version"
+	"github.com/mircearoata/pubgrub-go/version"
 )
 
 type term struct {

@@ -1,6 +1,8 @@
-package lib
+package pubgrub
 
-import "github.com/mircearoata/pubgrub-go/lib/version"
+import (
+	"github.com/mircearoata/pubgrub-go/version"
+)
 import "slices"
 
 type assignment interface {

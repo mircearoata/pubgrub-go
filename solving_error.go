@@ -1,4 +1,4 @@
-package lib
+package pubgrub
 
 type SolvingError struct {
 	cause *Incompatibility

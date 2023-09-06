@@ -1,4 +1,4 @@
-package lib
+package pubgrub
 
 type Incompatibility struct {
 	terms  map[string]term
