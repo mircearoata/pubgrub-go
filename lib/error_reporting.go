@@ -34,7 +34,7 @@ func (state *errorGenerationState) causeString(c *Incompatibility) string {
 		t := terms[0]
 		if t.Positive() {
 			if t.Dependency() == state.rootPkg {
-				return "resolving failed"
+				return "version solving failed"
 			}
 			if t.Constraint().Inverse().IsEmpty() {
 				// Checking if the constraint is "any"
@@ -58,7 +58,7 @@ func (state *errorGenerationState) causeString(c *Incompatibility) string {
 	return fmt.Sprintf("%s depends on %s", positive.String(), negative.String())
 }
 
-func writeErrorMessageRecursive(c *Incompatibility, state *errorGenerationState) {
+func writeErrorMessageRecursive(c *Incompatibility, state *errorGenerationState, isFirst bool) {
 	if !isDerived(c) {
 		return
 	}
@@ -70,41 +70,78 @@ func writeErrorMessageRecursive(c *Incompatibility, state *errorGenerationState)
 		l2, ok2 := state.lines[c2]
 
 		if ok1 && ok2 {
-			state.writeLine(fmt.Sprintf("Because %s (%d) and %s (%d), %s.", state.causeString(c1), l1, state.causeString(c2), l2, state.causeString(c)))
+			var first, second *Incompatibility
+			var firstLine, secondLine int
+			if l1 < l2 {
+				first = c1
+				second = c2
+				firstLine = l1
+				secondLine = l2
+			} else {
+				first = c2
+				second = c1
+				firstLine = l2
+				secondLine = l1
+			}
+			state.writeLine(fmt.Sprintf("Because %s (%d) and %s (%d), %s.", state.causeString(first), firstLine, state.causeString(second), secondLine, state.causeString(c)))
 			return
 		}
 
-		if ok1 && !ok2 {
-			writeErrorMessageRecursive(c2, state)
-			state.writeLine(fmt.Sprintf("And because %s (%d), %s.", state.causeString(c1), l1, state.causeString(c)))
-			return
-		}
+		if ok1 || ok2 {
+			var short, long *Incompatibility
+			var longLine int
+			if ok1 && !ok2 {
+				short = c2
+				long = c1
+				longLine = l1
+			} else if !ok1 && ok2 {
+				short = c1
+				long = c2
+				longLine = l2
+			}
 
-		if !ok1 && ok2 {
-			writeErrorMessageRecursive(c1, state)
-			state.writeLine(fmt.Sprintf("And because %s (%d), %s.", state.causeString(c2), l2, state.causeString(c)))
+			writeErrorMessageRecursive(short, state, false)
+			if isFirst {
+				state.writeLine(fmt.Sprintf("So, because %s (%d), %s.", state.causeString(long), longLine, state.causeString(c)))
+			} else {
+				state.writeLine(fmt.Sprintf("And because %s (%d), %s.", state.causeString(long), longLine, state.causeString(c)))
+			}
+			return
 		}
 
 		if !isDerived(c1.Causes()[0]) && !isDerived(c1.Causes()[1]) {
-			writeErrorMessageRecursive(c2, state)
-			writeErrorMessageRecursive(c1, state)
+			writeErrorMessageRecursive(c2, state, false)
+			writeErrorMessageRecursive(c1, state, false)
 			state.writeLine(fmt.Sprintf("Thus, %s.", state.causeString(c)))
 			return
 		}
 
 		if !isDerived(c2.Causes()[0]) && !isDerived(c2.Causes()[1]) {
-			writeErrorMessageRecursive(c1, state)
-			writeErrorMessageRecursive(c2, state)
+			writeErrorMessageRecursive(c1, state, false)
+			writeErrorMessageRecursive(c2, state, false)
 			state.writeLine(fmt.Sprintf("Thus, %s.", state.causeString(c)))
 			return
 		}
 
-		writeErrorMessageRecursive(c1, state)
-		l := state.tagLastLine(c1)
+		var first, second *Incompatibility
+		// This isn't the best way to do this, but it's the easiest
+		if c1.Terms()[0].Constraint().String() < c2.Terms()[0].Constraint().String() {
+			first = c1
+			second = c2
+		} else {
+			first = c2
+			second = c1
+		}
+		writeErrorMessageRecursive(first, state, false)
+		l := state.tagLastLine(first)
 		state.writeLine("")
-		writeErrorMessageRecursive(c2, state)
-		state.tagLastLine(c2)
-		state.writeLine(fmt.Sprintf("And because %s (%d), %s.", state.causeString(c1), l, state.causeString(c)))
+		writeErrorMessageRecursive(second, state, false)
+		state.tagLastLine(second)
+		if isFirst {
+			state.writeLine(fmt.Sprintf("So, because %s (%d), %s.", state.causeString(first), l, state.causeString(c)))
+		} else {
+			state.writeLine(fmt.Sprintf("And because %s (%d), %s.", state.causeString(first), l, state.causeString(c)))
+		}
 		return
 	}
 
@@ -138,22 +175,49 @@ func writeErrorMessageRecursive(c *Incompatibility, state *errorGenerationState)
 				priorExternal = dc1
 			}
 
-			writeErrorMessageRecursive(priorDerived, state)
-			state.writeLine(fmt.Sprintf("And because %s, %s.", state.causeString(priorExternal), state.causeString(c)))
+			writeErrorMessageRecursive(priorDerived, state, false)
+			if isFirst {
+				state.writeLine(fmt.Sprintf("So, because %s, %s.", state.causeString(priorExternal), state.causeString(c)))
+			} else {
+				state.writeLine(fmt.Sprintf("And because %s, %s.", state.causeString(priorExternal), state.causeString(c)))
+			}
 			return
 		}
 
-		writeErrorMessageRecursive(derived, state)
-		state.writeLine(fmt.Sprintf("And because %s, %s.", state.causeString(external), state.causeString(c)))
+		writeErrorMessageRecursive(derived, state, false)
+		if isFirst {
+			state.writeLine(fmt.Sprintf("And because %s, %s.", state.causeString(external), state.causeString(c)))
+		} else {
+			state.writeLine(fmt.Sprintf("And because %s, %s.", state.causeString(external), state.causeString(c)))
+		}
 		return
 	}
 
-	// TODO: order the causes as follows "Because x depends on y and y depends on z, x depends on z"
-	state.writeLine(fmt.Sprintf("Because %s and %s, %s.", state.causeString(c1), state.causeString(c2), state.causeString(c)))
+	sharedPkg := ""
+	for _, t1 := range c1.Terms() {
+		for _, t2 := range c2.Terms() {
+			if t1.Dependency() == t2.Dependency() {
+				sharedPkg = t1.Dependency()
+				break
+			}
+		}
+	}
+	var first, second *Incompatibility
+	// The negative term is the package that is depended on
+	// Therefore we want the first incompatibility to be the one that has a negative term of the shared package
+	if !c1.get(sharedPkg).Positive() {
+		first = c1
+		second = c2
+	} else {
+		first = c2
+		second = c1
+	}
+
+	state.writeLine(fmt.Sprintf("Because %s and %s, %s.", state.causeString(first), state.causeString(second), state.causeString(c)))
 }
 
 func GetErrorMessage(c *Incompatibility) string {
 	state := &errorGenerationState{lines: make(map[*Incompatibility]int), nextLine: 1, result: []string{}, rootPkg: c.Terms()[0].Dependency()}
-	writeErrorMessageRecursive(c, state)
+	writeErrorMessageRecursive(c, state, true)
 	return strings.TrimSpace(strings.Join(state.result, "\n"))
 }

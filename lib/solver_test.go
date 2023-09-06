@@ -184,7 +184,7 @@ func TestSolver_LinearErrorReporting(t *testing.T) {
 		delete(result, "$$root$$")
 		t.Fatalf("expected error, but resolved successfully: %s", result)
 	}
-	expected := "Because every version of foo depends on bar \"^2.0.0\" and every version of bar depends on baz \"^3.0.0\", every version of foo depends on baz \"^3.0.0\".\nAnd because installing baz \"^1.0.0\", resolving failed."
+	expected := "Because every version of foo depends on bar \"^2.0.0\" and every version of bar depends on baz \"^3.0.0\", every version of foo depends on baz \"^3.0.0\".\nSo, because installing baz \"^1.0.0\", version solving failed."
 	if err.Error() != expected {
 		t.Fatalf("expected error\n%s\n\ngot\n%s", expected, err.Error())
 	}
@@ -257,7 +257,7 @@ func TestSolver_BranchingErrorReporting(t *testing.T) {
 		delete(result, "$$root$$")
 		t.Fatalf("expected error, but resolved successfully: %s", result)
 	}
-	expected := "Because every version of a depends on b \"^2.0.0\" and foo \"<1.1.0\" depends on a \"^1.0.0\", foo \"<1.1.0\" depends on b \"^2.0.0\".\n1. And because foo \"<1.1.0\" depends on b \"^1.0.0\", foo \"<1.1.0\" is forbidden.\n\nBecause every version of x depends on y \"^2.0.0\" and foo \">=1.1.0\" depends on x \"^1.0.0\", foo \">=1.1.0\" depends on y \"^2.0.0\".\n2. And because foo \">=1.1.0\" depends on y \"^1.0.0\", foo \">=1.1.0\" is forbidden.\nAnd because foo \"<1.1.0\" is forbidden (1), foo is forbidden.\nAnd because installing foo \"^1.0.0\", resolving failed."
+	expected := "Because foo \"<1.1.0\" depends on a \"^1.0.0\" and every version of a depends on b \"^2.0.0\", foo \"<1.1.0\" depends on b \"^2.0.0\".\n1. And because foo \"<1.1.0\" depends on b \"^1.0.0\", foo \"<1.1.0\" is forbidden.\n\nBecause foo \">=1.1.0\" depends on x \"^1.0.0\" and every version of x depends on y \"^2.0.0\", foo \">=1.1.0\" depends on y \"^2.0.0\".\n2. And because foo \">=1.1.0\" depends on y \"^1.0.0\", foo \">=1.1.0\" is forbidden.\nAnd because foo \"<1.1.0\" is forbidden (1), foo is forbidden.\nAnd because installing foo \"^1.0.0\", version solving failed."
 	if err.Error() != expected {
 		t.Fatalf("expected error\n%s\n\ngot\n%s", expected, err.Error())
 	}
