@@ -50,7 +50,9 @@ func Solve(source Source, rootPkg string) (map[string]semver.Version, error) {
 		}
 	}
 
-	return s.partialSolution.decisionsMap(), nil
+	result := s.partialSolution.decisionsMap()
+	delete(result, rootPkg)
+	return result, nil
 }
 
 func (s *solver) unitPropagation(inPkg string) error {

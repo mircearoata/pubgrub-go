@@ -98,7 +98,6 @@ func TestSolver_ConflictResolutionWithPartialSatisfier(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	delete(result, "$$root$$")
 	expected := map[string]semver.Version{
 		"foo":    newVersion("1.0.0"),
 		"target": newVersion("2.0.0"),
@@ -151,7 +150,6 @@ func TestSolver_LinearErrorReporting(t *testing.T) {
 
 	result, err := Solve(source, "$$root$$")
 	if err == nil {
-		delete(result, "$$root$$")
 		t.Fatalf("expected error, but resolved successfully: %s", result)
 	}
 	expected := "Because every version of foo depends on bar \"^2.0.0\" and every version of bar depends on baz \"^3.0.0\", every version of foo depends on baz \"^3.0.0\".\nSo, because installing baz \"^1.0.0\", version solving failed."
@@ -224,7 +222,6 @@ func TestSolver_BranchingErrorReporting(t *testing.T) {
 
 	result, err := Solve(source, "$$root$$")
 	if err == nil {
-		delete(result, "$$root$$")
 		t.Fatalf("expected error, but resolved successfully: %s", result)
 	}
 	expected := "   Because foo \"<1.1.0\" depends on a \"^1.0.0\" and every version of a depends on b \"^2.0.0\", foo \"<1.1.0\" depends on b \"^2.0.0\".\n1. And because foo \"<1.1.0\" depends on b \"^1.0.0\", foo \"<1.1.0\" is forbidden.\n\n   Because foo \">=1.1.0\" depends on x \"^1.0.0\" and every version of x depends on y \"^2.0.0\", foo \">=1.1.0\" depends on y \"^2.0.0\".\n2. And because foo \">=1.1.0\" depends on y \"^1.0.0\", foo \">=1.1.0\" is forbidden.\n   And because foo \"<1.1.0\" is forbidden (1), foo is forbidden.\n   So, because installing foo \"^1.0.0\", version solving failed."
@@ -282,7 +279,6 @@ func TestSolver_OptionalDependencies_NoOptional(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	delete(result, "$$root$$")
 	expected := map[string]semver.Version{
 		"foo": newVersion("1.0.0"),
 	}
@@ -343,7 +339,6 @@ func TestSolver_OptionalDependencies_CompatibleVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	delete(result, "$$root$$")
 	expected := map[string]semver.Version{
 		"foo": newVersion("1.0.0"),
 		"bar": newVersion("1.0.0"),
@@ -397,7 +392,6 @@ func TestSolver_OptionalDependencies_Error(t *testing.T) {
 
 	result, err := Solve(source, "$$root$$")
 	if err == nil {
-		delete(result, "$$root$$")
 		t.Fatalf("expected error, but resolved successfully: %s", result)
 	}
 	expected := "Because every version of bar depends on baz \"^2.0.0\" and every version of foo depends on baz \"^1.0.0\", every version of foo forbids bar.\nSo, because installing bar \"^1.0.0\", version solving failed."
