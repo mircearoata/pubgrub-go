@@ -20,12 +20,12 @@ type Version struct {
 
 var semVerRegex = regexp.MustCompile(`^v?([0-9]+)(?:\.([0-9]+))?(?:\.([0-9]+))?(?:-([0-9A-Za-z\-]+(?:\.[0-9A-Za-z\-]+)*))?(?:\+([0-9A-Za-z\-]+(?:\.[0-9A-Za-z\-]+)*))?$`)
 
-func NewVersion(v string) (*Version, error) {
+func NewVersion(v string) (Version, error) {
 	match := semVerRegex.FindStringSubmatch(v)
 	if len(match) == 0 {
-		return nil, fmt.Errorf("invalid version string: %s", v)
+		return Version{}, fmt.Errorf("invalid version string: %s", v)
 	}
-	result := &Version{
+	result := Version{
 		raw: v,
 	}
 	if match[1] != "" {

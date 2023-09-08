@@ -24,7 +24,7 @@ func (s mockSource) PickVersion(_ string, versions []semver.Version) semver.Vers
 
 func newVersion(v string) semver.Version {
 	result, _ := semver.NewVersion(v)
-	return *result
+	return result
 }
 
 func newConstraint(c string) semver.Constraint {

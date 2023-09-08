@@ -25,8 +25,8 @@ func TestMakeVersion_Valid(t *testing.T) {
 		if err != nil {
 			t.Errorf("error parsing version %s: %s", test.version, err)
 		}
-		if !reflect.DeepEqual(*v, test.expected) {
-			t.Errorf("expected %v, got %v", test.expected, *v)
+		if !reflect.DeepEqual(v, test.expected) {
+			t.Errorf("expected %v, got %v", test.expected, v)
 		}
 	}
 }

@@ -39,8 +39,8 @@ func TestMakeVersionRange(t *testing.T) {
 		if err != nil {
 			t.Errorf("%d: error parsing version range %s: %s", i, test.versionRange, err)
 		}
-		if !reflect.DeepEqual(*v, test.expected) {
-			t.Errorf("%d: expected %v, got %v", i, test.expected, *v)
+		if !reflect.DeepEqual(v, test.expected) {
+			t.Errorf("%d: expected %v, got %v", i, test.expected, v)
 		}
 	}
 }
@@ -125,8 +125,8 @@ func TestVersionRange_Contains(t *testing.T) {
 		if err != nil {
 			t.Errorf("%d: error parsing version %s: %s", i, test.version, err)
 		}
-		if vr.Contains(*v) != test.expected {
-			t.Errorf("%d: %s contains %s: expected %v, got %v", i, test.versionRange, test.version, test.expected, vr.Contains(*v))
+		if vr.Contains(v) != test.expected {
+			t.Errorf("%d: %s contains %s: expected %v, got %v", i, test.versionRange, test.version, test.expected, vr.Contains(v))
 		}
 	}
 }

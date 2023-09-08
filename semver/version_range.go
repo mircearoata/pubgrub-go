@@ -20,7 +20,7 @@ type versionRange struct {
 	raw string
 }
 
-func makeVersionRange(v string) (*versionRange, error) {
+func makeVersionRange(v string) (versionRange, error) {
 	sections := strings.Split(v, " ")
 	result := versionRange{
 		raw: v,
@@ -29,7 +29,7 @@ func makeVersionRange(v string) (*versionRange, error) {
 		if s == "*" {
 			result = rangeAny
 			result.raw = v
-			return &result, nil
+			return result, nil
 		}
 		if s == "" {
 			continue
@@ -44,7 +44,7 @@ func makeVersionRange(v string) (*versionRange, error) {
 			}
 			ver, err := NewVersion(versionString)
 			if err != nil {
-				return nil, errors.Wrapf(err, "invalid version string parsing primitive range %s", s)
+				return versionRange{}, errors.Wrapf(err, "invalid version string parsing primitive range %s", s)
 			}
 			result = result.withLowerBound(ver, inclusive)
 			continue
@@ -59,7 +59,7 @@ func makeVersionRange(v string) (*versionRange, error) {
 			}
 			ver, err := NewVersion(versionString)
 			if err != nil {
-				return nil, errors.Wrapf(err, "invalid version string parsing primitive range %s", s)
+				return versionRange{}, errors.Wrapf(err, "invalid version string parsing primitive range %s", s)
 			}
 			result = result.withUpperBound(ver, inclusive)
 			continue
@@ -68,7 +68,7 @@ func makeVersionRange(v string) (*versionRange, error) {
 			// caret range
 			lowerBound, err := NewVersion(strings.TrimPrefix(s, "^"))
 			if err != nil {
-				return nil, errors.Wrapf(err, "invalid version string parsing caret range %s", s)
+				return versionRange{}, errors.Wrapf(err, "invalid version string parsing caret range %s", s)
 			}
 			result = result.withLowerBound(lowerBound, true)
 			var upperBound Version
@@ -79,14 +79,14 @@ func makeVersionRange(v string) (*versionRange, error) {
 			} else {
 				upperBound = lowerBound.bumpPatch()
 			}
-			result = result.withUpperBound(&upperBound, false)
+			result = result.withUpperBound(upperBound, false)
 			continue
 		}
 		if s[0] == '~' {
 			// tilde range
 			lowerBound, err := NewVersion(strings.TrimPrefix(s, "~"))
 			if err != nil {
-				return nil, errors.Wrapf(err, "invalid version string parsing caret range %s", s)
+				return versionRange{}, errors.Wrapf(err, "invalid version string parsing caret range %s", s)
 			}
 			result = result.withLowerBound(lowerBound, true)
 			var upperBound Version
@@ -97,28 +97,28 @@ func makeVersionRange(v string) (*versionRange, error) {
 				// only major version specified, allow minor and patch updates
 				upperBound = lowerBound.bumpMajor()
 			}
-			result = result.withUpperBound(&upperBound, false)
+			result = result.withUpperBound(upperBound, false)
 			continue
 		}
 		// exact version
 		ver, err := NewVersion(strings.TrimPrefix(s, "="))
 		if err != nil {
-			return nil, errors.Wrapf(err, "invalid version string parsing primitive range %s", s)
+			return versionRange{}, errors.Wrapf(err, "invalid version string parsing primitive range %s", s)
 		}
 		result = result.withLowerBound(ver, true)
 		result = result.withUpperBound(ver, true)
 	}
-	return &result, nil
+	return result, nil
 }
 
-func (v versionRange) withLowerBound(ver *Version, inclusive bool) versionRange {
+func (v versionRange) withLowerBound(ver Version, inclusive bool) versionRange {
 	if v.lowerBound == nil {
-		v.lowerBound = ver
+		v.lowerBound = &ver
 		v.lowerInclusive = inclusive
 	} else {
 		cmp := ver.Compare(*v.lowerBound)
 		if cmp < 0 {
-			v.lowerBound = ver
+			v.lowerBound = &ver
 			v.lowerInclusive = inclusive
 		} else if cmp == 0 {
 			v.lowerInclusive = v.lowerInclusive && inclusive
@@ -127,14 +127,14 @@ func (v versionRange) withLowerBound(ver *Version, inclusive bool) versionRange 
 	return v
 }
 
-func (v versionRange) withUpperBound(ver *Version, inclusive bool) versionRange {
+func (v versionRange) withUpperBound(ver Version, inclusive bool) versionRange {
 	if v.upperBound == nil {
-		v.upperBound = ver
+		v.upperBound = &ver
 		v.upperInclusive = inclusive
 	} else {
 		cmp := ver.Compare(*v.upperBound)
 		if cmp > 0 {
-			v.upperBound = ver
+			v.upperBound = &ver
 			v.upperInclusive = inclusive
 		} else if cmp == 0 {
 			v.upperInclusive = v.upperInclusive && inclusive

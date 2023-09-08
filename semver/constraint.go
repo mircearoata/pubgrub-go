@@ -33,7 +33,7 @@ func NewConstraint(c string) (Constraint, error) {
 		if err != nil {
 			return Constraint{}, err
 		}
-		result.ranges = append(result.ranges, *vr)
+		result.ranges = append(result.ranges, vr)
 	}
 	return result.canonical(), nil
 }
@@ -42,8 +42,8 @@ func SingleVersionConstraint(v Version) Constraint {
 	vRange := versionRange{
 		raw: v.raw,
 	}
-	vRange = vRange.withLowerBound(&v, true)
-	vRange = vRange.withUpperBound(&v, true)
+	vRange = vRange.withLowerBound(v, true)
+	vRange = vRange.withUpperBound(v, true)
 	return makeConstraint([]versionRange{vRange}, v.raw)
 }
 
@@ -254,9 +254,9 @@ func (v Constraint) canonical() Constraint {
 	}
 
 	nestedCount := 0
-	var currentRange *versionRange
+	var currentRange versionRange
 	nestedPrereleaseCount := 0
-	var currentPrereleaseRange *versionRange
+	var currentPrereleaseRange versionRange
 	for i := 0; i < len(versions); i++ {
 		nested := &nestedCount
 		curRange := &currentRange
@@ -270,7 +270,7 @@ func (v Constraint) canonical() Constraint {
 		} else {
 			*nested++
 			if *nested == 1 {
-				*curRange = &versionRange{
+				*curRange = versionRange{
 					lowerBound:     versions[i].version,
 					lowerInclusive: versions[i].isInclusive,
 				}
@@ -281,8 +281,7 @@ func (v Constraint) canonical() Constraint {
 			(*curRange).upperInclusive = versions[i].isInclusive
 			(*curRange).raw = (*curRange).String()
 
-			result.ranges = append(result.ranges, **curRange)
-			curRange = nil
+			result.ranges = append(result.ranges, *curRange)
 		}
 	}
 
