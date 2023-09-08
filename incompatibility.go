@@ -1,12 +1,12 @@
 package pubgrub
 
 type Incompatibility struct {
-	terms  map[string]term
+	terms  map[string]Term
 	causes []*Incompatibility
 }
 
-func (in Incompatibility) Terms() []term {
-	var terms []term
+func (in Incompatibility) Terms() []Term {
+	var terms []Term
 	for _, t := range in.terms {
 		terms = append(terms, t)
 	}
@@ -17,7 +17,7 @@ func (in Incompatibility) Causes() []*Incompatibility {
 	return in.causes
 }
 
-func (in Incompatibility) get(pkg string) *term {
+func (in Incompatibility) get(pkg string) *Term {
 	if t, ok := in.terms[pkg]; ok {
 		return &t
 	}
@@ -33,16 +33,16 @@ const (
 	setRelationInconclusive
 )
 
-func (in Incompatibility) relation(ps *partialSolution) (setRelation, *term) {
+func (in Incompatibility) relation(ps *partialSolution) (setRelation, *Term) {
 	result := setRelationSatisfied
-	var unsatisfied term
+	var unsatisfied Term
 
 	// The iteration order does not matter here,
 	// since for an almost satisfied relation there is a single inconclusive term
 	for _, t := range in.terms {
 		t2 := ps.get(t.pkg)
 		if t2 != nil {
-			rel := t.Relation(*t2)
+			rel := t.relation(*t2)
 			if rel == termRelationSatisfied {
 				continue
 			}
@@ -70,7 +70,7 @@ func (in Incompatibility) relation(ps *partialSolution) (setRelation, *term) {
 
 func (in Incompatibility) makePriorCause(c *Incompatibility, satisfier string) *Incompatibility {
 	newIncompatibility := &Incompatibility{
-		terms:  make(map[string]term),
+		terms:  make(map[string]Term),
 		causes: []*Incompatibility{&in, c},
 	}
 	for _, t := range in.terms {
@@ -86,10 +86,10 @@ func (in Incompatibility) makePriorCause(c *Incompatibility, satisfier string) *
 	return newIncompatibility
 }
 
-func (in Incompatibility) add(t term) {
+func (in Incompatibility) add(t Term) {
 	existingTerm := in.get(t.pkg)
 	if existingTerm != nil {
-		*existingTerm = existingTerm.Intersect(t)
+		*existingTerm = existingTerm.intersect(t)
 	} else {
 		in.terms[t.pkg] = t
 	}

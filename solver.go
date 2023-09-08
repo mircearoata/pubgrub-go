@@ -22,7 +22,7 @@ func Solve(source Source, rootPkg string) (map[string]semver.Version, error) {
 		rootPkg: rootPkg,
 		incompatibilities: []*Incompatibility{
 			{
-				terms: map[string]term{
+				terms: map[string]Term{
 					rootPkg: {
 						pkg:               rootPkg,
 						versionConstraint: semver.AnyConstraint,
@@ -152,8 +152,8 @@ func (s *solver) conflictResolution(fromIncompatibility *Incompatibility) (*Inco
 
 		priorCause := fromIncompatibility.makePriorCause(der.cause, satisfier.Package())
 
-		if rel := incompatibilityTerm.Relation(der.t); rel != termRelationSatisfied {
-			priorCause.add(der.t.Difference(*incompatibilityTerm).Negate())
+		if rel := incompatibilityTerm.relation(der.t); rel != termRelationSatisfied {
+			priorCause.add(der.t.difference(*incompatibilityTerm).Negate())
 		}
 
 		fromIncompatibility = priorCause
@@ -185,7 +185,7 @@ func (s *solver) decision() (string, bool, error) {
 
 	if len(versions) == 0 || len(compatibleVersions) == 0 {
 		s.addIncompatibility(&Incompatibility{
-			terms: map[string]term{pkg: *t},
+			terms: map[string]Term{pkg: *t},
 		})
 		return pkg, false, nil
 	}
@@ -234,7 +234,7 @@ func (s *solver) decision() (string, bool, error) {
 			return a.Compare(b)
 		})
 		s.addIncompatibility(&Incompatibility{
-			terms: map[string]term{
+			terms: map[string]Term{
 				pkg: {
 					pkg:               pkg,
 					versionConstraint: semver.NewConstraintFromVersionSubset(versionsWithThisDependency, availableVersions),
@@ -266,7 +266,7 @@ func (s *solver) decision() (string, bool, error) {
 			return a.Compare(b)
 		})
 		s.addIncompatibility(&Incompatibility{
-			terms: map[string]term{
+			terms: map[string]Term{
 				pkg: {
 					pkg:               pkg,
 					versionConstraint: semver.NewConstraintFromVersionSubset(versionsWithThisDependency, availableVersions),
@@ -296,7 +296,7 @@ func (s *solver) decision() (string, bool, error) {
 
 func (s *solver) addIncompatibility(in *Incompatibility) {
 	if slices.ContainsFunc(s.incompatibilities, func(i *Incompatibility) bool {
-		return maps.EqualFunc(i.terms, in.terms, func(a, b term) bool {
+		return maps.EqualFunc(i.terms, in.terms, func(a, b Term) bool {
 			return a.Equal(b)
 		})
 	}) {

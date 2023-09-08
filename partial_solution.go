@@ -15,7 +15,7 @@ type partialSolution struct {
 }
 
 type derivation struct {
-	t             term
+	t             Term
 	cause         *Incompatibility
 	decisionLevel int
 }
@@ -42,12 +42,12 @@ func (d decision) DecisionLevel() int {
 	return d.decisionLevel
 }
 
-func (ps *partialSolution) get(pkg string) *term {
-	var result *term
+func (ps *partialSolution) get(pkg string) *Term {
+	var result *Term
 	for _, a := range ps.assignments {
 		if a.Package() == pkg {
 			if dec, ok := a.(decision); ok {
-				return &term{
+				return &Term{
 					pkg:               dec.pkg,
 					versionConstraint: semver.SingleVersionConstraint(dec.version),
 					positive:          true,
@@ -57,7 +57,7 @@ func (ps *partialSolution) get(pkg string) *term {
 				if result == nil {
 					result = &der.t
 				} else {
-					intersection := result.Intersect(der.t)
+					intersection := result.intersect(der.t)
 					result = &intersection
 				}
 			}
@@ -76,7 +76,7 @@ func (ps *partialSolution) currentDecisionLevel() int {
 	return currentDecisionLevel
 }
 
-func (ps *partialSolution) add(t term, cause *Incompatibility) {
+func (ps *partialSolution) add(t Term, cause *Incompatibility) {
 	newDerivation := derivation{
 		t:             t,
 		decisionLevel: ps.currentDecisionLevel(),
