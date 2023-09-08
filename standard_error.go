@@ -26,11 +26,22 @@ func NewStandardErrorWriter(rootPkg string) *StandardErrorWriter {
 func (w *StandardErrorWriter) String() string {
 	var result []string
 	for i, line := range w.result {
+		if line == "" {
+			result = append(result, "")
+			continue
+		}
+		indent := 0
+		for _, num := range w.lineNumbers {
+			lineNumLen := len(fmt.Sprintf("%d. ", num))
+			if lineNumLen > indent {
+				indent = lineNumLen
+			}
+		}
 		lineNum := ""
 		if num, ok := w.lineNumbers[i]; ok {
 			lineNum = fmt.Sprintf("%d. ", num)
 		}
-		result = append(result, fmt.Sprintf("%s%s", lineNum, line))
+		result = append(result, fmt.Sprintf("%s%s%s", lineNum, strings.Repeat(" ", indent-len(lineNum)), line))
 	}
 	return strings.Join(result, "\n")
 }
