@@ -1,8 +1,9 @@
 package semver
 
 import (
-	"reflect"
 	"testing"
+
+	"github.com/MarvinJWendt/testza"
 )
 
 func TestNewConstraint(t *testing.T) {
@@ -27,11 +28,7 @@ func TestNewConstraint(t *testing.T) {
 
 	for _, test := range tests {
 		actual, err := NewConstraint(test.constraint)
-		if err != nil {
-			t.Errorf("NewConstraint(%s) returned error %s", test.constraint, err)
-		}
-		if !reflect.DeepEqual(actual, test.expected) {
-			t.Errorf("NewConstraint(%s) = %s, expected %s", test.constraint, actual, test.expected)
-		}
+		testza.AssertNoError(t, err, "NewConstraint(%s)", test.constraint)
+		testza.AssertEqual(t, test.expected, actual, "NewConstraint(%s)", test.constraint)
 	}
 }

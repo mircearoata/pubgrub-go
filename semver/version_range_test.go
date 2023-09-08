@@ -1,7 +1,7 @@
 package semver
 
 import (
-	"reflect"
+	"github.com/MarvinJWendt/testza"
 	"testing"
 )
 
@@ -34,14 +34,10 @@ func TestMakeVersionRange(t *testing.T) {
 		{"*", versionRange{raw: "*"}},
 	}
 
-	for i, test := range tests {
-		v, err := makeVersionRange(test.versionRange)
-		if err != nil {
-			t.Errorf("%d: error parsing version range %s: %s", i, test.versionRange, err)
-		}
-		if !reflect.DeepEqual(v, test.expected) {
-			t.Errorf("%d: expected %v, got %v", i, test.expected, v)
-		}
+	for _, test := range tests {
+		actual, err := makeVersionRange(test.versionRange)
+		testza.AssertNoError(t, err, "makeVersionRange(%s)", test.versionRange)
+		testza.AssertEqual(t, test.expected, actual, "makeVersionRange(%s)", test.versionRange)
 	}
 }
 
@@ -116,17 +112,11 @@ func TestVersionRange_Contains(t *testing.T) {
 		{"~1", "2.0.0", false},
 	}
 
-	for i, test := range tests {
+	for _, test := range tests {
 		vr, err := makeVersionRange(test.versionRange)
-		if err != nil {
-			t.Errorf("%d: error parsing version range %s: %s", i, test.versionRange, err)
-		}
+		testza.AssertNoError(t, err, "makeVersionRange(%s)", test.versionRange)
 		v, err := NewVersion(test.version)
-		if err != nil {
-			t.Errorf("%d: error parsing version %s: %s", i, test.version, err)
-		}
-		if vr.Contains(v) != test.expected {
-			t.Errorf("%d: %s contains %s: expected %v, got %v", i, test.versionRange, test.version, test.expected, vr.Contains(v))
-		}
+		testza.AssertNoError(t, err, "NewVersion(%s)", test.version)
+		testza.AssertEqual(t, test.expected, vr.Contains(v), "%s contains %s", test.versionRange, test.version)
 	}
 }

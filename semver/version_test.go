@@ -1,7 +1,8 @@
 package semver
 
 import (
-	"reflect"
+	"fmt"
+	"github.com/MarvinJWendt/testza"
 	"testing"
 )
 
@@ -22,12 +23,8 @@ func TestMakeVersion_Valid(t *testing.T) {
 
 	for _, test := range tests {
 		v, err := NewVersion(test.version)
-		if err != nil {
-			t.Errorf("error parsing version %s: %s", test.version, err)
-		}
-		if !reflect.DeepEqual(v, test.expected) {
-			t.Errorf("expected %v, got %v", test.expected, v)
-		}
+		testza.AssertNoError(t, err, "NewVersion(%s)", test.version)
+		testza.AssertEqual(t, test.expected, v, "NewVersion(%s)", test.version)
 	}
 }
 
@@ -46,9 +43,7 @@ func TestMakeVersion_Invalid(t *testing.T) {
 
 	for _, test := range tests {
 		_, err := NewVersion(test.version)
-		if err == nil {
-			t.Errorf("expected error parsing version %s, got nil", test.version)
-		}
+		testza.AssertEqual(t, fmt.Sprintf("invalid version string: %s", test.version), err.Error(), "NewVersion(%s)", test.version)
 	}
 }
 
@@ -69,8 +64,6 @@ func TestVersion_Compare(t *testing.T) {
 
 	for _, test := range tests {
 		actual := test.v1.Compare(test.v2)
-		if actual != test.expected {
-			t.Errorf("comparing %v and %v, expected %d, got %d", test.v1, test.v2, test.expected, actual)
-		}
+		testza.AssertEqual(t, test.expected, actual, "Compare(%s, %s)", test.v1, test.v2)
 	}
 }
