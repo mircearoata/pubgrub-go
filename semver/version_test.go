@@ -25,6 +25,7 @@ func TestMakeVersion_Valid(t *testing.T) {
 		v, err := NewVersion(test.version)
 		testza.AssertNoError(t, err, "NewVersion(%s)", test.version)
 		testza.AssertEqual(t, test.expected, v, "NewVersion(%s)", test.version)
+		testza.AssertEqual(t, test.version, v.RawString(), "NewVersion(%s).RawString()", test.version)
 	}
 }
 
@@ -54,11 +55,41 @@ func TestVersion_Compare(t *testing.T) {
 		expected int
 	}
 	var tests = []test{
+		//// Release
+		// Equal
 		{Version{1, 0, 0, nil, nil, "1.0.0"}, Version{1, 0, 0, nil, nil, "1.0.0"}, 0},
+
+		// Patch diff
+		{Version{1, 0, 0, nil, nil, "1.0.0"}, Version{1, 0, 1, nil, nil, "1.0.1"}, -1},
+		{Version{1, 0, 1, nil, nil, "1.0.1"}, Version{1, 0, 0, nil, nil, "1.0.0"}, 1},
+
+		// Minor diff
+		{Version{1, 0, 0, nil, nil, "1.1.0"}, Version{1, 1, 0, nil, nil, "1.1.0"}, -1},
+		{Version{1, 1, 0, nil, nil, "1.1.0"}, Version{1, 0, 0, nil, nil, "1.1.0"}, 1},
+
+		// Major diff
+		{Version{1, 0, 0, nil, nil, "1.0.0"}, Version{2, 0, 0, nil, nil, "2.0.0"}, -1},
+		{Version{2, 0, 0, nil, nil, "2.0.0"}, Version{1, 0, 0, nil, nil, "1.0.0"}, 1},
+
+		// Build metadata
 		{Version{1, 0, 0, nil, nil, "1.0.0"}, Version{1, 0, 0, nil, []string{"build"}, "1.0.0+build"}, 0},
+
+		//// Pre-release
+		// Release and pre-release
 		{Version{1, 0, 0, nil, nil, "1.0.0"}, Version{1, 0, 0, []string{"alpha"}, nil, "1.0.0-alpha"}, 1},
+
+		// Equal
 		{Version{1, 0, 0, []string{"alpha"}, nil, "1.0.0-alpha"}, Version{1, 0, 0, nil, nil, "1.0.0"}, -1},
+
+		// Number and number
+		{Version{1, 0, 0, []string{"1"}, nil, "1.0.0-1"}, Version{1, 0, 0, []string{"2"}, nil, "1.0.0-2"}, -1},
+		{Version{1, 0, 0, []string{"2"}, nil, "1.0.0-2"}, Version{1, 0, 0, []string{"1"}, nil, "1.0.0-1"}, 1},
+
+		// Number before string
 		{Version{1, 0, 0, []string{"0"}, nil, "1.0.0-0"}, Version{1, 0, 0, []string{"alpha"}, nil, "1.0.0-alpha"}, -1},
+		{Version{1, 0, 0, []string{"alpha"}, nil, "1.0.0-alpha"}, Version{1, 0, 0, []string{"0"}, nil, "1.0.0-0"}, 1},
+
+		// Different pre-release length
 		{Version{1, 0, 0, []string{"alpha"}, nil, "1.0.0-alpha"}, Version{1, 0, 0, []string{"alpha", "0"}, nil, "1.0.0-alpha.0"}, -1},
 	}
 

@@ -168,6 +168,10 @@ func (v Version) isPrerelease() bool {
 	return len(v.pre) != 0
 }
 
+func (v Version) isFirstPrerelease() bool {
+	return len(v.pre) == 1 && v.pre[0] == "0"
+}
+
 func (v Version) String() string {
 	result := fmt.Sprintf("%d.%d.%d", v.major, v.minor, v.patch)
 	if len(v.pre) != 0 {

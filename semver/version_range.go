@@ -27,9 +27,8 @@ func makeVersionRange(v string) (versionRange, error) {
 	}
 	for _, s := range sections {
 		if s == "*" {
-			result = rangeAny
-			result.raw = v
-			return result, nil
+			// The default range is any
+			continue
 		}
 		if s == "" {
 			continue
@@ -117,7 +116,7 @@ func (v versionRange) withLowerBound(ver Version, inclusive bool) versionRange {
 		v.lowerInclusive = inclusive
 	} else {
 		cmp := ver.Compare(*v.lowerBound)
-		if cmp < 0 {
+		if cmp > 0 {
 			v.lowerBound = &ver
 			v.lowerInclusive = inclusive
 		} else if cmp == 0 {
@@ -133,7 +132,7 @@ func (v versionRange) withUpperBound(ver Version, inclusive bool) versionRange {
 		v.upperInclusive = inclusive
 	} else {
 		cmp := ver.Compare(*v.upperBound)
-		if cmp > 0 {
+		if cmp < 0 {
 			v.upperBound = &ver
 			v.upperInclusive = inclusive
 		} else if cmp == 0 {
@@ -211,6 +210,7 @@ func (v versionRange) Intersect(other versionRange) versionRange {
 		upperBound:     newUpperBound,
 		lowerInclusive: newLowerInclusive,
 		upperInclusive: newUpperInclusive,
+		raw:            strings.TrimSpace(v.raw + " " + other.raw),
 	}
 }
 
