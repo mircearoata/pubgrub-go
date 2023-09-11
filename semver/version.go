@@ -85,7 +85,7 @@ func (v Version) Compare(other Version) int {
 }
 
 func (v Version) Inverse() Constraint {
-	return makeConstraint([]versionRange{
+	return makeCanonicalConstraint([]versionRange{
 		{
 			upperBound:     &v,
 			upperInclusive: false,
@@ -166,10 +166,6 @@ func (v Version) isSameRelease(other Version) bool {
 
 func (v Version) isPrerelease() bool {
 	return len(v.pre) != 0
-}
-
-func (v Version) isFirstPrerelease() bool {
-	return len(v.pre) == 1 && v.pre[0] == "0"
 }
 
 func (v Version) String() string {

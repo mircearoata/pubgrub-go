@@ -7,7 +7,7 @@ import (
 
 var rangeAny = versionRange{raw: "*"}
 
-// versionRange represents a range of versions as defined by https://www.npmjs.com/package/semver#range-grammar
+// versionRange represents a continuous range of versions, including pre-releases
 // We do not care about the individual versions and symbols mentioned, but rather compute the
 // resulting intersection of all the ranges that the version should match and only store its endpoints.
 // TODO: currently we do not support parsing the hyphen range and the x-range
@@ -230,7 +230,18 @@ func (v versionRange) Contains(other Version) bool {
 		}
 	}
 	if v.upperBound != nil {
-		result := v.upperBound.Compare(other)
+		// If x.y.z is considered incompatible (<x.y.z),
+		// then pre-releases of that version are also likely considered incompatible
+		// Therefore, we treat <x.y.z as <x.y.z-0
+		var upperBound Version
+		if !v.upperInclusive && !v.upperBound.isPrerelease() {
+			upperBound = *v.upperBound
+			upperBound.pre = []string{"0"}
+		} else {
+			upperBound = *v.upperBound
+		}
+
+		result := upperBound.Compare(other)
 		if v.upperInclusive {
 			if result < 0 {
 				// upper bound is less than other
@@ -241,26 +252,6 @@ func (v versionRange) Contains(other Version) bool {
 				// upper bound is less than or equal to other
 				return false
 			}
-		}
-	}
-	if other.isPrerelease() {
-		// pre-releases are only contained in ranges that have the same major, minor, and patch as one of the endpoints
-		// and that endpoint also has a pre-release
-		// this second part is not technically required for the lower bound, since pre-releases are ordered before releases,
-		// but it is required for the upper bound
-		matchesEnd := false
-		if v.lowerBound != nil && v.lowerBound.isPrerelease() {
-			if other.major == v.lowerBound.major && other.minor == v.lowerBound.minor && other.patch == v.lowerBound.patch {
-				matchesEnd = true
-			}
-		}
-		if v.upperBound != nil && v.upperBound.isPrerelease() {
-			if other.major == v.upperBound.major && other.minor == v.upperBound.minor && other.patch == v.upperBound.patch {
-				matchesEnd = true
-			}
-		}
-		if !matchesEnd {
-			return false
 		}
 	}
 	return true
@@ -300,7 +291,7 @@ func (v versionRange) Inverse() Constraint {
 	raw = strings.TrimPrefix(raw, " || ")
 	raw = strings.TrimSuffix(raw, " || ")
 
-	return makeConstraint(ranges, raw)
+	return makeCanonicalConstraint(ranges, raw)
 }
 
 func (v versionRange) Equal(other versionRange) bool {

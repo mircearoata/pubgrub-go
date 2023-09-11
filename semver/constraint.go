@@ -1,8 +1,6 @@
 package semver
 
 import (
-	"fmt"
-	"math"
 	"slices"
 	"strings"
 )
@@ -44,7 +42,7 @@ func SingleVersionConstraint(v Version) Constraint {
 	}
 	vRange = vRange.withLowerBound(v, true)
 	vRange = vRange.withUpperBound(v, true)
-	return makeConstraint([]versionRange{vRange}, v.raw)
+	return makeCanonicalConstraint([]versionRange{vRange}, v.raw)
 }
 
 // NewConstraintFromVersionSubset returns a minimal constraint that matches exactly the given versions out of the
@@ -83,12 +81,12 @@ func NewConstraintFromVersionSubset(versions []Version, allVersions []Version) C
 		}
 	}
 
-	c := makeConstraint(ranges, "")
+	c := makeCanonicalConstraint(ranges, "")
 	c.raw = c.String()
 	return c
 }
 
-func makeConstraint(ranges []versionRange, raw string) Constraint {
+func makeCanonicalConstraint(ranges []versionRange, raw string) Constraint {
 	return Constraint{
 		ranges: ranges,
 		raw:    raw,
@@ -99,91 +97,24 @@ func makeConstraint(ranges []versionRange, raw string) Constraint {
 // but which contains no two overlapping ranges, and which
 // is sorted in ascending order of the lower bound of each range.
 func (v Constraint) canonical() Constraint {
-	var ranges []versionRange
-	for _, r := range v.ranges {
-		if r.IsEmpty() {
-			// empty ranges are ignored since they would never match anything
-			continue
-		}
-
-		// handle ranges endpoints that mention pre-releases separately since they have extra meaning
-		// split them into two ranges, one that only matches pre-releases and one that only matches releases
-
-		// also check if both ends of the range are pre-releases of the same version, in which case we can just use the original range
-		if r.lowerBound != nil && r.upperBound != nil &&
-			r.lowerBound.isPrerelease() && r.upperBound.isPrerelease() &&
-			r.lowerBound.isSameRelease(*r.upperBound) {
-			ranges = append(ranges, r)
-			continue
-		}
-
-		newRange := r
-		if r.lowerBound != nil && r.lowerBound.isPrerelease() {
-			nextPatch := r.lowerBound.nextPatch()
-			prereleaseRange := versionRange{
-				lowerBound:     r.lowerBound,
-				lowerInclusive: r.lowerInclusive,
-				upperBound:     &nextPatch,
-				upperInclusive: false,
-			}
-			prereleaseRange.raw = prereleaseRange.String()
-			ranges = append(ranges, prereleaseRange)
-			newRange.lowerBound = &nextPatch
-			newRange.lowerInclusive = true
-		}
-
-		if r.upperBound != nil && r.upperBound.isPrerelease() {
-			prereleaseStart := Version{
-				major: r.upperBound.major,
-				minor: r.upperBound.minor,
-				patch: r.upperBound.patch,
-				pre:   []string{"0"},
-				raw:   fmt.Sprintf("%d.%d.%d-0", r.upperBound.major, r.upperBound.minor, r.upperBound.patch),
-			}
-			prereleaseRange := versionRange{
-				lowerBound:     &prereleaseStart,
-				lowerInclusive: true,
-				upperBound:     r.upperBound,
-				upperInclusive: r.upperInclusive,
-			}
-			prereleaseRange.raw = prereleaseRange.String()
-			ranges = append(ranges, prereleaseRange)
-			// Since <x.y.z-0 is equivalent to <x.y.z, we use the latter instead which results in more ranges being merged
-			nextPatch := prereleaseStart.nextPatch()
-			newRange.upperBound = &nextPatch
-			newRange.upperInclusive = false
-		}
-		ranges = append(ranges, newRange)
-	}
-
 	type versionOnAxis struct {
 		version     *Version
 		isInclusive bool
 
-		isUpper          bool
-		isFromPrerelease bool
+		isUpper bool
 	}
 
 	var versions []versionOnAxis
-	for _, r := range ranges {
-		isFromPrerelease := false
-		if r.lowerBound != nil && r.lowerBound.isPrerelease() {
-			isFromPrerelease = true
-		}
-		if r.upperBound != nil && r.upperBound.isPrerelease() {
-			isFromPrerelease = true
-		}
+	for _, r := range v.ranges {
 		versions = append(versions, versionOnAxis{
-			version:          r.lowerBound,
-			isInclusive:      r.lowerInclusive,
-			isUpper:          false,
-			isFromPrerelease: isFromPrerelease,
+			version:     r.lowerBound,
+			isInclusive: r.lowerInclusive,
+			isUpper:     false,
 		})
 		versions = append(versions, versionOnAxis{
-			version:          r.upperBound,
-			isInclusive:      r.upperInclusive,
-			isUpper:          true,
-			isFromPrerelease: isFromPrerelease,
+			version:     r.upperBound,
+			isInclusive: r.upperInclusive,
+			isUpper:     true,
 		})
 	}
 
@@ -246,7 +177,7 @@ func (v Constraint) canonical() Constraint {
 				return 1
 			}
 		}
-		panic("unreachable")
+		return 0
 	})
 
 	result := Constraint{
@@ -255,36 +186,28 @@ func (v Constraint) canonical() Constraint {
 
 	nestedCount := 0
 	var currentRange versionRange
-	nestedPrereleaseCount := 0
-	var currentPrereleaseRange versionRange
 	for i := 0; i < len(versions); i++ {
-		nested := &nestedCount
-		curRange := &currentRange
-		if versions[i].isFromPrerelease {
-			nested = &nestedPrereleaseCount
-			curRange = &currentPrereleaseRange
-		}
-
 		if versions[i].isUpper {
-			*nested--
+			nestedCount--
 		} else {
-			*nested++
-			if *nested == 1 {
-				*curRange = versionRange{
+			nestedCount++
+			if nestedCount == 1 {
+				currentRange = versionRange{
 					lowerBound:     versions[i].version,
 					lowerInclusive: versions[i].isInclusive,
 				}
 			}
 		}
-		if *nested == 0 {
-			(*curRange).upperBound = versions[i].version
-			(*curRange).upperInclusive = versions[i].isInclusive
-			(*curRange).raw = (*curRange).String()
+		if nestedCount == 0 {
+			currentRange.upperBound = versions[i].version
+			currentRange.upperInclusive = versions[i].isInclusive
+			currentRange.raw = currentRange.String()
 
-			result.ranges = append(result.ranges, *curRange)
+			result.ranges = append(result.ranges, currentRange)
 		}
 	}
 
+	// At this point no two ranges are overlapping, therefore no two ranges have an equal lower bound
 	slices.SortFunc(result.ranges, func(a, b versionRange) int {
 		lowerA := &Version{0, 0, 0, nil, nil, ""}
 		lowerB := &Version{0, 0, 0, nil, nil, ""}
@@ -295,20 +218,7 @@ func (v Constraint) canonical() Constraint {
 			lowerB = b.lowerBound
 		}
 
-		if res := lowerA.Compare(*lowerB); res != 0 {
-			return res
-		}
-
-		upperA := &Version{math.MaxInt32, math.MaxInt32, math.MaxInt32, nil, nil, ""}
-		upperB := &Version{math.MaxInt32, math.MaxInt32, math.MaxInt32, nil, nil, ""}
-		if a.upperBound != nil {
-			upperA = a.upperBound
-		}
-		if b.upperBound != nil {
-			upperB = b.upperBound
-		}
-
-		return upperA.Compare(*upperB)
+		return lowerA.Compare(*lowerB)
 	})
 
 	return result
@@ -323,22 +233,21 @@ func (v Constraint) Intersect(other Constraint) Constraint {
 		return Constraint{}
 	}
 	var ranges []versionRange
-	raw := ""
 	for _, r := range v.ranges {
 		for _, r2 := range other.ranges {
 			intersection := r.Intersect(r2)
 			if !intersection.IsEmpty() {
 				ranges = append(ranges, intersection)
-				raw += intersection.raw + " || "
 			}
 		}
 	}
-	raw = strings.TrimSuffix(raw, " || ")
-	return makeConstraint(ranges, raw)
+	c := makeCanonicalConstraint(ranges, "")
+	c.raw = c.String()
+	return c
 }
 
 func (v Constraint) Union(other Constraint) Constraint {
-	return makeConstraint(append(v.ranges, other.ranges...), v.raw+" || "+other.raw)
+	return makeCanonicalConstraint(append(v.ranges, other.ranges...), v.raw+" || "+other.raw)
 }
 
 func (v Constraint) Difference(other Constraint) Constraint {
@@ -355,10 +264,7 @@ func (v Constraint) Contains(other Version) bool {
 }
 
 func (v Constraint) Inverse() Constraint {
-	if v.IsEmpty() {
-		return AnyConstraint
-	}
-	result := v.ranges[0].Inverse()
+	result := AnyConstraint
 	for _, r := range v.ranges {
 		result = result.Intersect(r.Inverse())
 	}
