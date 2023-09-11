@@ -1,8 +1,9 @@
 package pubgrub
 
 type Incompatibility struct {
-	terms  map[string]Term
-	causes []*Incompatibility
+	terms     map[string]Term
+	causes    []*Incompatibility
+	dependant string
 }
 
 func (in Incompatibility) Terms() []Term {

@@ -247,6 +247,7 @@ func (s *solver) decision() (string, bool, error) {
 					versionConstraint: constraint,
 				},
 			},
+			dependant: pkg,
 		})
 	}
 
@@ -284,6 +285,7 @@ func (s *solver) decision() (string, bool, error) {
 					positive:          true,
 				},
 			},
+			dependant: pkg,
 		})
 	}
 

@@ -367,6 +367,6 @@ func TestSolver_OptionalDependencies_Error(t *testing.T) {
 
 	result, err := Solve(source, "$$root$$")
 	testza.AssertNil(t, result)
-	expected := "Because every version of bar depends on baz \"^2.0.0\" and every version of foo depends on baz \"^1.0.0\", every version of foo forbids bar.\nSo, because installing bar \"^1.0.0\", version solving failed."
+	expected := "Because every version of bar depends on baz \"^2.0.0\" and every version of foo depends on baz \"^1.0.0\", every version of bar forbids foo.\nSo, because installing bar \"^1.0.0\", version solving failed."
 	testza.AssertEqual(t, expected, err.Error())
 }

@@ -85,8 +85,25 @@ func (w *StandardErrorWriter) causeString(c *Incompatibility) string {
 		dep = terms[0]
 	}
 	if dep.Positive() {
-		// This is an optional dependency, which has a positive term, but with an inverse constraint
-		// We revert the constraint here to get the term in a similar format to the others
+		if c.dependant != "" {
+			// This is an optional dependency, which has a positive term, but with an inverse constraint
+			// We revert the constraint here to get the term in a similar format to the others
+			if pkg.Dependency() != c.dependant {
+				pkg, dep = dep, pkg
+			}
+		} else {
+			// What can we do here to determine a logical order of the terms?
+			// For now, we can just order them by the package name,
+			// so that the order is consistent between runs at least
+
+			// Maybe we can do some heuristics on the version constraint
+			// to see for which of the terms the inverse makes more sense than the original
+			// One such heuristic could be the number of ranges in the constraint
+
+			if pkg.Dependency() > dep.Dependency() {
+				pkg, dep = dep, pkg
+			}
+		}
 		dep = dep.Inverse()
 	}
 	if pkg.Dependency() == w.rootPkg {
