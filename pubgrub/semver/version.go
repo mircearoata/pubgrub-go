@@ -56,10 +56,10 @@ func (v Version) Compare(other Version) int {
 	if v.patch != other.patch {
 		return v.patch - other.patch
 	}
-	if !v.isPrerelease() && other.isPrerelease() {
+	if !v.IsPrerelease() && other.IsPrerelease() {
 		return 1
 	}
-	if v.isPrerelease() && !other.isPrerelease() {
+	if v.IsPrerelease() && !other.IsPrerelease() {
 		return -1
 	}
 	// both are pre-releases or releases
@@ -124,7 +124,7 @@ func (v Version) bumpMajor() Version {
 	}
 }
 
-func (v Version) isPrerelease() bool {
+func (v Version) IsPrerelease() bool {
 	return len(v.pre) != 0
 }
 

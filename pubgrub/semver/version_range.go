@@ -238,7 +238,7 @@ func (v versionRange) Contains(other Version) bool {
 		// then pre-releases of that version are also likely considered incompatible
 		// Therefore, we treat <x.y.z as <x.y.z-0
 		var upperBound Version
-		if !v.upperInclusive && !v.upperBound.isPrerelease() {
+		if !v.upperInclusive && !v.upperBound.IsPrerelease() {
 			upperBound = *v.upperBound
 			upperBound.pre = []string{"0"}
 		} else {
