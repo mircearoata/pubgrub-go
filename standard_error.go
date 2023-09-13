@@ -11,6 +11,8 @@ type StandardErrorWriter struct {
 	lineNumbers                map[int]int
 	incompatibilityLineNumbers map[*Incompatibility]int
 	rootPkg                    string
+	staticStrings              StandardErrorStaticStrings
+	stringer                   StandardErrorStringer
 }
 
 func NewStandardErrorWriter(rootPkg string) *StandardErrorWriter {
@@ -20,7 +22,17 @@ func NewStandardErrorWriter(rootPkg string) *StandardErrorWriter {
 		lineNumbers:                map[int]int{},
 		incompatibilityLineNumbers: map[*Incompatibility]int{},
 		rootPkg:                    rootPkg,
+		staticStrings:              DefaultStandardErrorStrings,
+		stringer:                   DefaultStandardErrorStringer{},
 	}
+}
+
+func (w *StandardErrorWriter) SetStaticStrings(s StandardErrorStaticStrings) {
+	w.staticStrings = s
+}
+
+func (w *StandardErrorWriter) SetStringer(s StandardErrorStringer) {
+	w.stringer = s
 }
 
 func (w *StandardErrorWriter) String() string {
@@ -61,25 +73,18 @@ func (w *StandardErrorWriter) GetTag(incompatibility *Incompatibility) (int, boo
 	return 0, false
 }
 
-func (w *StandardErrorWriter) TermString(t Term, includeVersion bool) string {
-	if includeVersion {
-		return t.String()
-	}
-	return t.Dependency()
-}
-
 func (w *StandardErrorWriter) CauseString(c *Incompatibility) string {
 	if w.IsRoot(c) {
-		return "version solving failed"
+		return w.staticStrings.ResolvingFailed
 	}
 	terms := c.Terms()
 	if len(terms) == 1 {
 		t := terms[0]
 		if t.Positive() {
 			if t.Constraint().IsAny() {
-				return fmt.Sprintf("%s is forbidden", w.TermString(t, false))
+				return fmt.Sprintf(w.staticStrings.IsForbidden, w.stringer.Term(t, false))
 			}
-			return fmt.Sprintf("%s is forbidden", w.TermString(t, true))
+			return fmt.Sprintf(w.staticStrings.IsForbidden, w.stringer.Term(t, true))
 		}
 		panic("negative term in cause")
 	}
@@ -114,15 +119,15 @@ func (w *StandardErrorWriter) CauseString(c *Incompatibility) string {
 		dep = dep.Inverse()
 	}
 	if pkg.Dependency() == w.rootPkg {
-		return fmt.Sprintf("installing %s", w.TermString(dep, true))
+		return fmt.Sprintf(w.staticStrings.Installing, w.stringer.Term(dep, true))
 	}
 	if dep.Constraint().IsEmpty() {
-		return fmt.Sprintf("%s forbids %s", w.TermString(pkg, true), w.TermString(dep, false))
+		return fmt.Sprintf(w.staticStrings.Forbids, w.stringer.Term(pkg, true), w.stringer.Term(dep, false))
 	}
 	if dep.Constraint().IsAny() {
-		return fmt.Sprintf("%s depends on %s", w.TermString(pkg, true), w.TermString(dep, false))
+		return fmt.Sprintf(w.staticStrings.DependsOn, w.stringer.Term(pkg, true), w.stringer.Term(dep, false))
 	}
-	return fmt.Sprintf("%s depends on %s", w.TermString(pkg, true), w.TermString(dep, true))
+	return fmt.Sprintf(w.staticStrings.DependsOn, w.stringer.Term(pkg, true), w.stringer.Term(dep, true))
 }
 
 func (w *StandardErrorWriter) WriteLine(line string) {
@@ -136,46 +141,46 @@ func (w *StandardErrorWriter) IsRoot(incompatibility *Incompatibility) bool {
 
 func (w *StandardErrorWriter) WriteLineTwoCauses(cause1, cause2, incompatibility *Incompatibility) {
 	if w.IsRoot(incompatibility) {
-		w.WriteLine(fmt.Sprintf("So, because %s and %s, %s.", w.CauseString(cause1), w.CauseString(cause2), w.CauseString(incompatibility)))
+		w.WriteLine(fmt.Sprintf(w.staticStrings.TwoCausesFinal, w.CauseString(cause1), w.CauseString(cause2), w.CauseString(incompatibility)))
 	} else {
-		w.WriteLine(fmt.Sprintf("Because %s and %s, %s.", w.CauseString(cause1), w.CauseString(cause2), w.CauseString(incompatibility)))
+		w.WriteLine(fmt.Sprintf(w.staticStrings.TwoCauses, w.CauseString(cause1), w.CauseString(cause2), w.CauseString(incompatibility)))
 	}
 }
 
 func (w *StandardErrorWriter) WriteLineTwoCausesOneTag(cause1, cause2, incompatibility *Incompatibility, line2 int) {
 	if w.IsRoot(incompatibility) {
-		w.WriteLine(fmt.Sprintf("So, because %s and %s (%d), %s.", w.CauseString(cause1), w.CauseString(cause2), line2, w.CauseString(incompatibility)))
+		w.WriteLine(fmt.Sprintf(w.staticStrings.TwoCausesOneTagFinal, w.CauseString(cause1), w.CauseString(cause2), line2, w.CauseString(incompatibility)))
 	} else {
-		w.WriteLine(fmt.Sprintf("Because %s and %s (%d), %s.", w.CauseString(cause1), w.CauseString(cause2), line2, w.CauseString(incompatibility)))
+		w.WriteLine(fmt.Sprintf(w.staticStrings.TwoCausesOneTag, w.CauseString(cause1), w.CauseString(cause2), line2, w.CauseString(incompatibility)))
 	}
 }
 
 func (w *StandardErrorWriter) WriteLineTwoCausesTwoTags(cause1, cause2, incompatibility *Incompatibility, line1, line2 int) {
 	if w.IsRoot(incompatibility) {
-		w.WriteLine(fmt.Sprintf("So, because %s (%d) and %s (%d), %s.", w.CauseString(cause1), line1, w.CauseString(cause2), line2, w.CauseString(incompatibility)))
+		w.WriteLine(fmt.Sprintf(w.staticStrings.TwoCausesTwoTagsFinal, w.CauseString(cause1), line1, w.CauseString(cause2), line2, w.CauseString(incompatibility)))
 	} else {
-		w.WriteLine(fmt.Sprintf("Because %s (%d) and %s (%d), %s.", w.CauseString(cause1), line1, w.CauseString(cause2), line2, w.CauseString(incompatibility)))
+		w.WriteLine(fmt.Sprintf(w.staticStrings.TwoCausesTwoTags, w.CauseString(cause1), line1, w.CauseString(cause2), line2, w.CauseString(incompatibility)))
 	}
 }
 
 func (w *StandardErrorWriter) WriteLineOneCause(cause, incompatibility *Incompatibility) {
 	if w.IsRoot(incompatibility) {
-		w.WriteLine(fmt.Sprintf("So, because %s, %s.", w.CauseString(cause), w.CauseString(incompatibility)))
+		w.WriteLine(fmt.Sprintf(w.staticStrings.OneCauseFinal, w.CauseString(cause), w.CauseString(incompatibility)))
 	} else {
-		w.WriteLine(fmt.Sprintf("And because %s, %s.", w.CauseString(cause), w.CauseString(incompatibility)))
+		w.WriteLine(fmt.Sprintf(w.staticStrings.OneCause, w.CauseString(cause), w.CauseString(incompatibility)))
 	}
 }
 
 func (w *StandardErrorWriter) WriteLineOneCauseOneTag(cause, incompatibility *Incompatibility, line int) {
 	if w.IsRoot(incompatibility) {
-		w.WriteLine(fmt.Sprintf("So, because %s (%d), %s.", w.CauseString(cause), line, w.CauseString(incompatibility)))
+		w.WriteLine(fmt.Sprintf(w.staticStrings.OneCauseOneTagFinal, w.CauseString(cause), line, w.CauseString(incompatibility)))
 	} else {
-		w.WriteLine(fmt.Sprintf("And because %s (%d), %s.", w.CauseString(cause), line, w.CauseString(incompatibility)))
+		w.WriteLine(fmt.Sprintf(w.staticStrings.OneCauseOneTag, w.CauseString(cause), line, w.CauseString(incompatibility)))
 	}
 }
 
 func (w *StandardErrorWriter) WriteLineNoCause(incompatibility *Incompatibility) {
-	w.WriteLine(fmt.Sprintf("Thus, %s.", w.CauseString(incompatibility)))
+	w.WriteLine(fmt.Sprintf(w.staticStrings.NoCause, w.CauseString(incompatibility)))
 }
 
 func (w *StandardErrorWriter) Separate() {
