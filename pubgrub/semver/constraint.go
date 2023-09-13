@@ -104,7 +104,7 @@ func (v Constraint) canonical() Constraint {
 		isUpper bool
 	}
 
-	var versions []versionOnAxis
+	versions := make([]versionOnAxis, 0, len(v.ranges)*2)
 	for _, r := range v.ranges {
 		versions = append(versions, versionOnAxis{
 			version:     r.lowerBound,
@@ -129,25 +129,21 @@ func (v Constraint) canonical() Constraint {
 			if a.isUpper != b.isUpper && (a.isInclusive || b.isInclusive) {
 				if a.isUpper {
 					return 1
-				} else {
-					return -1
 				}
+				return -1
 			}
 			// If the versions are the same version and type, order the inclusive bound at the outer point based on type
 			if a.isInclusive != b.isInclusive {
 				if a.isUpper {
 					if a.isInclusive {
 						return 1
-					} else {
-						return -1
 					}
-				} else {
-					if a.isInclusive {
-						return -1
-					} else {
-						return 1
-					}
+					return -1
 				}
+				if a.isInclusive {
+					return -1
+				}
+				return 1
 			}
 
 			// everything is equal
@@ -157,25 +153,22 @@ func (v Constraint) canonical() Constraint {
 			if a.isUpper != b.isUpper {
 				if a.isUpper {
 					return 1
-				} else {
-					return -1
 				}
+				return -1
 			}
 			return 0
 		}
 		if a.version == nil {
 			if a.isUpper {
 				return 1
-			} else {
-				return -1
 			}
+			return -1
 		}
 		if b.version == nil {
 			if b.isUpper {
 				return -1
-			} else {
-				return 1
 			}
+			return 1
 		}
 		return 0
 	})
@@ -276,7 +269,7 @@ func (v Constraint) IsAny() bool {
 }
 
 func (v Constraint) String() string {
-	var rangeStrings []string
+	rangeStrings := make([]string, 0, len(v.ranges))
 	for _, r := range v.ranges {
 		rangeStrings = append(rangeStrings, r.String())
 	}

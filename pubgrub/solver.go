@@ -1,11 +1,12 @@
 package pubgrub
 
 import (
+	"maps"
+	"slices"
+
 	"github.com/mircearoata/pubgrub-go/pubgrub/semver"
 	"github.com/mircearoata/pubgrub-go/pubgrub/util"
 	"github.com/pkg/errors"
-	"maps"
-	"slices"
 )
 
 type solver struct {
@@ -176,7 +177,7 @@ func (s *solver) decision() (string, bool, error) {
 		return pkg, false, errors.Wrap(err, "failed to get package versions")
 	}
 
-	var availableVersions []semver.Version
+	availableVersions := make([]semver.Version, 0, len(versions))
 	var compatibleVersions []semver.Version
 	for _, v := range versions {
 		availableVersions = append(availableVersions, v.Version)
@@ -219,7 +220,7 @@ func (s *solver) decision() (string, bool, error) {
 	}
 
 	// Add dependencies in a deterministic order (alphabetical)
-	var deps []string
+	deps := make([]string, 0, len(chosenVersionData.Dependencies))
 	for dep := range chosenVersionData.Dependencies {
 		deps = append(deps, dep)
 	}
@@ -252,9 +253,9 @@ func (s *solver) decision() (string, bool, error) {
 	}
 
 	// Add optional dependencies in a deterministic order (alphabetical)
-	var optionalDeps []string
+	optionalDeps := make([]string, 0, len(chosenVersionData.OptionalDependencies))
 	for dep := range chosenVersionData.OptionalDependencies {
-		optionalDeps = append(deps, dep)
+		optionalDeps = append(optionalDeps, dep)
 	}
 	slices.Sort(optionalDeps)
 	for _, dep := range optionalDeps {

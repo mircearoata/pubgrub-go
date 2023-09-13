@@ -1,17 +1,16 @@
 package semver
 
 import (
-	"github.com/MarvinJWendt/testza"
 	"testing"
+
+	"github.com/MarvinJWendt/testza"
 )
 
 func TestMakeVersionRange(t *testing.T) {
-	type test struct {
+	tests := []struct {
 		versionRange string
 		expected     versionRange
-	}
-
-	var tests = []test{
+	}{
 		//// Single end simple
 		{"1.2.3", versionRange{lowerBound: &Version{1, 2, 3, nil, nil, "1.2.3"}, upperBound: &Version{1, 2, 3, nil, nil, "1.2.3"}, lowerInclusive: true, upperInclusive: true, raw: "1.2.3"}},
 		{"=1.2.3", versionRange{lowerBound: &Version{1, 2, 3, nil, nil, "1.2.3"}, upperBound: &Version{1, 2, 3, nil, nil, "1.2.3"}, lowerInclusive: true, upperInclusive: true, raw: "=1.2.3"}},
@@ -54,11 +53,9 @@ func TestMakeVersionRange(t *testing.T) {
 }
 
 func TestMakeVersionRange_Invalid(t *testing.T) {
-	type test struct {
+	tests := []struct {
 		versionRange string
-	}
-
-	var tests = []test{
+	}{
 		{">=a"},
 		{"<=a"},
 		{"^a"},
@@ -73,13 +70,11 @@ func TestMakeVersionRange_Invalid(t *testing.T) {
 }
 
 func TestVersionRange_Contains(t *testing.T) {
-	type test struct {
+	tests := []struct {
 		versionRange string
 		version      string
 		expected     bool
-	}
-
-	var tests = []test{
+	}{
 		{"1.2.3", "1.2.3", true},
 		{"1.2.3", "1.2.4", false},
 		{"1.2.3", "1.2.2", false},
@@ -153,12 +148,10 @@ func TestVersionRange_Contains(t *testing.T) {
 }
 
 func TestVersionRange_IsEmpty(t *testing.T) {
-	type test struct {
+	tests := []struct {
 		versionRange string
 		expected     bool
-	}
-
-	var tests = []test{
+	}{
 		{"1.2.3", false},
 		{"=1.2.3", false},
 		{">=1.2.3", false},
@@ -188,13 +181,11 @@ func TestVersionRange_IsEmpty(t *testing.T) {
 }
 
 func TestVersionRange_Equal(t *testing.T) {
-	type test struct {
+	tests := []struct {
 		r1       string
 		r2       string
 		expected bool
-	}
-
-	var tests = []test{
+	}{
 		{"1.2.3", "1.2.3", true},
 		{"1.2.3", "1.2.4", false},
 		{"1.2.3", "1.2.2", false},
@@ -226,13 +217,11 @@ func TestVersionRange_Equal(t *testing.T) {
 }
 
 func TestVersionRange_Intersect(t *testing.T) {
-	type test struct {
+	tests := []struct {
 		r1       string
 		r2       string
 		expected versionRange
-	}
-
-	var tests = []test{
+	}{
 		//// Releases
 		{"1.2.3", "1.2.3", versionRange{&Version{1, 2, 3, nil, nil, "1.2.3"}, &Version{1, 2, 3, nil, nil, "1.2.3"}, true, true, "1.2.3 1.2.3"}},
 		{"1.2.3", "1.2.4", versionRange{&Version{1, 2, 4, nil, nil, "1.2.4"}, &Version{1, 2, 3, nil, nil, "1.2.3"}, true, true, "1.2.3 1.2.4"}},

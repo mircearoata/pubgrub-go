@@ -1,8 +1,9 @@
 package semver
 
 import (
-	"github.com/pkg/errors"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 var rangeAny = versionRange{raw: "*"}
@@ -71,11 +72,12 @@ func makeVersionRange(v string) (versionRange, error) {
 			}
 			result = result.withLowerBound(lowerBound, true)
 			var upperBound Version
-			if lowerBound.major != 0 {
+			switch {
+			case lowerBound.major != 0:
 				upperBound = lowerBound.bumpMajor()
-			} else if lowerBound.minor != 0 {
+			case lowerBound.minor != 0:
 				upperBound = lowerBound.bumpMinor()
-			} else {
+			default:
 				upperBound = lowerBound.bumpPatch()
 			}
 			result = result.withUpperBound(upperBound, false)
@@ -168,13 +170,14 @@ func (v versionRange) Intersect(other versionRange) versionRange {
 			newLowerInclusive = v.lowerInclusive
 		} else {
 			result := v.lowerBound.Compare(*other.lowerBound)
-			if result < 0 {
+			switch {
+			case result < 0:
 				newLowerBound = other.lowerBound
 				newLowerInclusive = other.lowerInclusive
-			} else if result > 0 {
+			case result > 0:
 				newLowerBound = v.lowerBound
 				newLowerInclusive = v.lowerInclusive
-			} else {
+			default:
 				newLowerBound = v.lowerBound
 				newLowerInclusive = v.lowerInclusive && other.lowerInclusive
 			}
@@ -192,13 +195,14 @@ func (v versionRange) Intersect(other versionRange) versionRange {
 			newUpperInclusive = v.upperInclusive
 		} else {
 			result := v.upperBound.Compare(*other.upperBound)
-			if result < 0 {
+			switch {
+			case result < 0:
 				newUpperBound = v.upperBound
 				newUpperInclusive = v.upperInclusive
-			} else if result > 0 {
+			case result > 0:
 				newUpperBound = other.upperBound
 				newUpperInclusive = other.upperInclusive
-			} else {
+			default:
 				newUpperBound = v.upperBound
 				newUpperInclusive = v.upperInclusive && other.upperInclusive
 			}
@@ -332,11 +336,12 @@ func (v versionRange) String() string {
 		if !v.upperInclusive {
 			// Shorthand for caret version
 			var nextCaretVersion Version
-			if v.lowerBound.major != 0 {
+			switch {
+			case v.lowerBound.major != 0:
 				nextCaretVersion = v.lowerBound.bumpMajor()
-			} else if v.lowerBound.minor != 0 {
+			case v.lowerBound.minor != 0:
 				nextCaretVersion = v.lowerBound.bumpMinor()
-			} else if v.lowerBound.patch != 0 {
+			default:
 				nextCaretVersion = v.lowerBound.bumpPatch()
 			}
 			if v.upperBound.Compare(nextCaretVersion) == 0 {
@@ -345,9 +350,10 @@ func (v versionRange) String() string {
 
 			// Shorthand for tilde version
 			var nextTildeVersion Version
-			if v.lowerBound.minor != 0 {
+			switch {
+			case v.lowerBound.minor != 0:
 				nextTildeVersion = v.lowerBound.bumpMinor()
-			} else {
+			default:
 				nextTildeVersion = v.lowerBound.bumpMajor()
 			}
 			if v.upperBound.Compare(nextTildeVersion) == 0 {

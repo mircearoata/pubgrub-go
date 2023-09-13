@@ -97,42 +97,6 @@ func (v Version) Inverse() Constraint {
 	}, fmt.Sprintf("<%s || >%s", v.raw, v.raw))
 }
 
-func (v Version) nextPatch() Version {
-	if v.isPrerelease() {
-		return Version{
-			major: v.major,
-			minor: v.minor,
-			patch: v.patch,
-			raw:   fmt.Sprintf("%d.%d.%d", v.major, v.minor, v.patch),
-		}
-	}
-	return v.bumpPatch()
-}
-
-func (v Version) nextMinor() Version {
-	if v.isPrerelease() && v.patch == 0 {
-		return Version{
-			major: v.major,
-			minor: v.minor,
-			patch: v.patch,
-			raw:   fmt.Sprintf("%d.%d.%d", v.major, v.minor, v.patch),
-		}
-	}
-	return v.bumpMinor()
-}
-
-func (v Version) nextMajor() Version {
-	if v.isPrerelease() && v.patch == 0 && v.minor == 0 {
-		return Version{
-			major: v.major,
-			minor: v.minor,
-			patch: v.patch,
-			raw:   fmt.Sprintf("%d.%d.%d", v.major, v.minor, v.patch),
-		}
-	}
-	return v.bumpMajor()
-}
-
 func (v Version) bumpPatch() Version {
 	return Version{
 		major: v.major,
@@ -158,10 +122,6 @@ func (v Version) bumpMajor() Version {
 		patch: 0,
 		raw:   fmt.Sprintf("%d.0.0", v.major+1),
 	}
-}
-
-func (v Version) isSameRelease(other Version) bool {
-	return v.major == other.major && v.minor == other.minor && v.patch == other.patch
 }
 
 func (v Version) isPrerelease() bool {

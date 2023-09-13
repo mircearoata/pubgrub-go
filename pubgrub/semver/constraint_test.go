@@ -7,12 +7,10 @@ import (
 )
 
 func TestNewConstraint(t *testing.T) {
-	type test struct {
+	tests := []struct {
 		constraint string
 		expected   Constraint
-	}
-
-	var tests = []test{
+	}{
 		// already canonical
 		// doesn't need too much testing on basic parsing, since that's tested in version_range_test.go
 		{"1.2.3", Constraint{[]versionRange{{&Version{major: 1, minor: 2, patch: 3, raw: "1.2.3"}, &Version{major: 1, minor: 2, patch: 3, raw: "1.2.3"}, true, true, "1.2.3"}}, "1.2.3"}},
@@ -42,13 +40,11 @@ func TestNewConstraint(t *testing.T) {
 }
 
 func TestConstraint_Intersect(t *testing.T) {
-	type test struct {
+	tests := []struct {
 		c1       Constraint
 		c2       Constraint
 		expected Constraint
-	}
-
-	var tests = []test{
+	}{
 		// equal
 		{Constraint{[]versionRange{{&Version{1, 0, 0, nil, nil, "1.0.0"}, &Version{1, 0, 0, nil, nil, "1.0.0"}, true, true, "1.0.0"}}, "1.0.0"}, Constraint{[]versionRange{{&Version{1, 0, 0, nil, nil, "1.0.0"}, &Version{1, 0, 0, nil, nil, "1.0.0"}, true, true, "1.0.0"}}, "1.0.0"}, Constraint{[]versionRange{{&Version{1, 0, 0, nil, nil, "1.0.0"}, &Version{1, 0, 0, nil, nil, "1.0.0"}, true, true, "1.0.0"}}, "1.0.0"}},
 		// intersecting
@@ -62,12 +58,5 @@ func TestConstraint_Intersect(t *testing.T) {
 	for _, test := range tests {
 		actual := test.c1.canonical().Intersect(test.c2.canonical())
 		testza.AssertEqual(t, test.expected, actual, "Intersect(%s, %s)", test.c1, test.c2)
-	}
-}
-
-func TestVersionRange_Inverse(t *testing.T) {
-	type test struct {
-		r        string
-		expected Constraint
 	}
 }

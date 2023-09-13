@@ -1,8 +1,9 @@
 package pubgrub
 
 import (
-	"github.com/mircearoata/pubgrub-go/pubgrub/semver"
 	"slices"
+
+	"github.com/mircearoata/pubgrub-go/pubgrub/semver"
 )
 
 type assignment interface {

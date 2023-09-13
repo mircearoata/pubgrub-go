@@ -20,7 +20,7 @@ func (s *CachingSource) GetPackageVersions(pkg string) ([]pubgrub.PackageVersion
 	}
 	result, err := s.Source.GetPackageVersions(pkg)
 	if err != nil {
-		return nil, err
+		return nil, err //nolint:wrapcheck
 	}
 	s.cache[pkg] = result
 	return result, nil

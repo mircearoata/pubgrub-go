@@ -1,0 +1,27 @@
+linters:
+  disable-all: true
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - typecheck
+    - unused
+    - bidichk
+    - contextcheck
+    - durationcheck
+    - errorlint
+    - goconst
+    - goimports
+    - revive
+    - misspell
+    - prealloc
+    - whitespace
+    - wrapcheck
+    - gci
+    - gocritic
+    - gofumpt
+    - nonamedreturns
+    - paralleltest
+    - tparallel

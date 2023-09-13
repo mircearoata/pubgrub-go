@@ -36,7 +36,7 @@ func (w *StandardErrorWriter) SetStringer(s StandardErrorStringer) {
 }
 
 func (w *StandardErrorWriter) String() string {
-	var result []string
+	result := make([]string, 0, len(w.result))
 	for i, line := range w.result {
 		if line == "" {
 			result = append(result, "")

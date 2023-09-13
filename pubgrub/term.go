@@ -2,6 +2,7 @@ package pubgrub
 
 import (
 	"fmt"
+
 	"github.com/mircearoata/pubgrub-go/pubgrub/semver"
 )
 

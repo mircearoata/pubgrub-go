@@ -7,7 +7,7 @@ type Incompatibility struct {
 }
 
 func (in Incompatibility) Terms() []Term {
-	var terms []Term
+	terms := make([]Term, 0, len(in.terms))
 	for _, t := range in.terms {
 		terms = append(terms, t)
 	}

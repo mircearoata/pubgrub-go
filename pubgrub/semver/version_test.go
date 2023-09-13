@@ -2,17 +2,16 @@ package semver
 
 import (
 	"fmt"
-	"github.com/MarvinJWendt/testza"
 	"testing"
+
+	"github.com/MarvinJWendt/testza"
 )
 
 func TestMakeVersion_Valid(t *testing.T) {
-	type test struct {
+	tests := []struct {
 		version  string
 		expected Version
-	}
-
-	var tests = []test{
+	}{
 		{"1.2.3", Version{1, 2, 3, nil, nil, "1.2.3"}},
 		{"1.2.3-alpha", Version{1, 2, 3, []string{"alpha"}, nil, "1.2.3-alpha"}},
 		{"1.2.3+build", Version{1, 2, 3, nil, []string{"build"}, "1.2.3+build"}},
@@ -30,11 +29,9 @@ func TestMakeVersion_Valid(t *testing.T) {
 }
 
 func TestMakeVersion_Invalid(t *testing.T) {
-	type test struct {
+	tests := []struct {
 		version string
-	}
-
-	var tests = []test{
+	}{
 		{"1.0.0.0"},
 		{"-1"},
 		{"1.0.0-"},
@@ -49,12 +46,11 @@ func TestMakeVersion_Invalid(t *testing.T) {
 }
 
 func TestVersion_Compare(t *testing.T) {
-	type test struct {
+	tests := []struct {
 		v1       Version
 		v2       Version
 		expected int
-	}
-	var tests = []test{
+	}{
 		//// Release
 		// Equal
 		{Version{1, 0, 0, nil, nil, "1.0.0"}, Version{1, 0, 0, nil, nil, "1.0.0"}, 0},
