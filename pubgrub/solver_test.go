@@ -2,7 +2,7 @@ package pubgrub
 
 import (
 	"github.com/MarvinJWendt/testza"
-	"github.com/mircearoata/pubgrub-go/semver"
+	"github.com/mircearoata/pubgrub-go/pubgrub/semver"
 	"github.com/pkg/errors"
 	"testing"
 )

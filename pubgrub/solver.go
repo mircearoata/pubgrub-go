@@ -1,8 +1,8 @@
 package pubgrub
 
 import (
-	"github.com/mircearoata/pubgrub-go/semver"
-	"github.com/mircearoata/pubgrub-go/util"
+	"github.com/mircearoata/pubgrub-go/pubgrub/semver"
+	"github.com/mircearoata/pubgrub-go/pubgrub/util"
 	"github.com/pkg/errors"
 	"maps"
 	"slices"

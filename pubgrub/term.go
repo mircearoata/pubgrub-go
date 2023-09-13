@@ -2,7 +2,7 @@ package pubgrub
 
 import (
 	"fmt"
-	"github.com/mircearoata/pubgrub-go/semver"
+	"github.com/mircearoata/pubgrub-go/pubgrub/semver"
 )
 
 type Term struct {

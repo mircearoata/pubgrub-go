@@ -1,8 +1,6 @@
 package pubgrub
 
-import (
-	"github.com/mircearoata/pubgrub-go/semver"
-)
+import "github.com/mircearoata/pubgrub-go/pubgrub/semver"
 
 type PackageVersion struct {
 	Version              semver.Version

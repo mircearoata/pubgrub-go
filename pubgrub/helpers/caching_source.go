@@ -1,6 +1,6 @@
 package helpers
 
-import "github.com/mircearoata/pubgrub-go"
+import "github.com/mircearoata/pubgrub-go/pubgrub"
 
 type CachingSource struct {
 	pubgrub.Source

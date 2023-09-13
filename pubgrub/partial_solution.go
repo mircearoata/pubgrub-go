@@ -1,7 +1,7 @@
 package pubgrub
 
 import (
-	"github.com/mircearoata/pubgrub-go/semver"
+	"github.com/mircearoata/pubgrub-go/pubgrub/semver"
 	"slices"
 )
 
