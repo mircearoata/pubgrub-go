@@ -34,6 +34,8 @@ func newConstraint(c string) semver.Constraint {
 }
 
 func TestSolver_ConflictResolutionWithPartialSatisfier(t *testing.T) {
+	t.Parallel()
+
 	source := mockSource{
 		packages: map[string][]PackageVersion{
 			"$$root$$": {
@@ -106,6 +108,8 @@ func TestSolver_ConflictResolutionWithPartialSatisfier(t *testing.T) {
 }
 
 func TestSolver_LinearErrorReporting(t *testing.T) {
+	t.Parallel()
+
 	source := mockSource{
 		packages: map[string][]PackageVersion{
 			"$$root$$": {
@@ -151,6 +155,8 @@ func TestSolver_LinearErrorReporting(t *testing.T) {
 }
 
 func TestSolver_BranchingErrorReporting(t *testing.T) {
+	t.Parallel()
+
 	source := mockSource{
 		packages: map[string][]PackageVersion{
 			"$$root$$": {
@@ -219,6 +225,8 @@ func TestSolver_BranchingErrorReporting(t *testing.T) {
 }
 
 func TestSolver_OptionalDependencies_NoOptional(t *testing.T) {
+	t.Parallel()
+
 	source := mockSource{
 		packages: map[string][]PackageVersion{
 			"$$root$$": {
@@ -272,6 +280,8 @@ func TestSolver_OptionalDependencies_NoOptional(t *testing.T) {
 }
 
 func TestSolver_OptionalDependencies_CompatibleVersion(t *testing.T) {
+	t.Parallel()
+
 	source := mockSource{
 		packages: map[string][]PackageVersion{
 			"$$root$$": {
@@ -328,6 +338,8 @@ func TestSolver_OptionalDependencies_CompatibleVersion(t *testing.T) {
 }
 
 func TestSolver_OptionalDependencies_Error(t *testing.T) {
+	t.Parallel()
+
 	source := mockSource{
 		packages: map[string][]PackageVersion{
 			"$$root$$": {

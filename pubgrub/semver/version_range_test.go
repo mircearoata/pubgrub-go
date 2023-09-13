@@ -7,6 +7,8 @@ import (
 )
 
 func TestMakeVersionRange(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		versionRange string
 		expected     versionRange
@@ -45,14 +47,20 @@ func TestMakeVersionRange(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		actual, err := makeVersionRange(test.versionRange)
-		testza.AssertNoError(t, err, "makeVersionRange(%s)", test.versionRange)
-		testza.AssertEqual(t, test.expected, actual, "makeVersionRange(%s)", test.versionRange)
-		testza.AssertEqual(t, test.versionRange, actual.RawString(), "makeVersionRange(%s).RawString()", test.versionRange)
+		test := test
+		t.Run(test.versionRange, func(t *testing.T) {
+			t.Parallel()
+			actual, err := makeVersionRange(test.versionRange)
+			testza.AssertNoError(t, err, "makeVersionRange(%s)", test.versionRange)
+			testza.AssertEqual(t, test.expected, actual, "makeVersionRange(%s)", test.versionRange)
+			testza.AssertEqual(t, test.versionRange, actual.RawString(), "makeVersionRange(%s).RawString()", test.versionRange)
+		})
 	}
 }
 
 func TestMakeVersionRange_Invalid(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		versionRange string
 	}{
@@ -64,12 +72,18 @@ func TestMakeVersionRange_Invalid(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		_, err := makeVersionRange(test.versionRange)
-		testza.AssertNotEqual(t, nil, err, "makeVersionRange(%s)", test.versionRange)
+		test := test
+		t.Run(test.versionRange, func(t *testing.T) {
+			t.Parallel()
+			_, err := makeVersionRange(test.versionRange)
+			testza.AssertNotEqual(t, nil, err, "makeVersionRange(%s)", test.versionRange)
+		})
 	}
 }
 
 func TestVersionRange_Contains(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		versionRange string
 		version      string
@@ -139,15 +153,21 @@ func TestVersionRange_Contains(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		vr, err := makeVersionRange(test.versionRange)
-		testza.AssertNoError(t, err, "makeVersionRange(%s)", test.versionRange)
-		v, err := NewVersion(test.version)
-		testza.AssertNoError(t, err, "NewVersion(%s)", test.version)
-		testza.AssertEqual(t, test.expected, vr.Contains(v), "%s contains %s", test.versionRange, test.version)
+		test := test
+		t.Run(test.versionRange+" contains "+test.version, func(t *testing.T) {
+			t.Parallel()
+			vr, err := makeVersionRange(test.versionRange)
+			testza.AssertNoError(t, err, "makeVersionRange(%s)", test.versionRange)
+			v, err := NewVersion(test.version)
+			testza.AssertNoError(t, err, "NewVersion(%s)", test.version)
+			testza.AssertEqual(t, test.expected, vr.Contains(v), "%s contains %s", test.versionRange, test.version)
+		})
 	}
 }
 
 func TestVersionRange_IsEmpty(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		versionRange string
 		expected     bool
@@ -174,13 +194,19 @@ func TestVersionRange_IsEmpty(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		vr, err := makeVersionRange(test.versionRange)
-		testza.AssertNoError(t, err, "makeVersionRange(%s)", test.versionRange)
-		testza.AssertEqual(t, test.expected, vr.IsEmpty(), "%s.IsEmpty()", test.versionRange)
+		test := test
+		t.Run(test.versionRange, func(t *testing.T) {
+			t.Parallel()
+			vr, err := makeVersionRange(test.versionRange)
+			testza.AssertNoError(t, err, "makeVersionRange(%s)", test.versionRange)
+			testza.AssertEqual(t, test.expected, vr.IsEmpty(), "%s.IsEmpty()", test.versionRange)
+		})
 	}
 }
 
 func TestVersionRange_Equal(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		r1       string
 		r2       string
@@ -208,15 +234,21 @@ func TestVersionRange_Equal(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		r1, err := makeVersionRange(test.r1)
-		testza.AssertNoError(t, err, "makeVersionRange(%s)", test.r1)
-		r2, err := makeVersionRange(test.r2)
-		testza.AssertNoError(t, err, "makeVersionRange(%s)", test.r2)
-		testza.AssertEqual(t, test.expected, r1.Equal(r2), "%s.Equal(%s)", test.r1, test.r2)
+		test := test
+		t.Run(test.r1+" == "+test.r2, func(t *testing.T) {
+			t.Parallel()
+			r1, err := makeVersionRange(test.r1)
+			testza.AssertNoError(t, err, "makeVersionRange(%s)", test.r1)
+			r2, err := makeVersionRange(test.r2)
+			testza.AssertNoError(t, err, "makeVersionRange(%s)", test.r2)
+			testza.AssertEqual(t, test.expected, r1.Equal(r2), "%s.Equal(%s)", test.r1, test.r2)
+		})
 	}
 }
 
 func TestVersionRange_Intersect(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		r1       string
 		r2       string
@@ -241,10 +273,14 @@ func TestVersionRange_Intersect(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		r1, err := makeVersionRange(test.r1)
-		testza.AssertNoError(t, err, "makeVersionRange(%s)", test.r1)
-		r2, err := makeVersionRange(test.r2)
-		testza.AssertNoError(t, err, "makeVersionRange(%s)", test.r2)
-		testza.AssertEqual(t, test.expected, r1.Intersect(r2), "%s.Intersect(%s)", test.r1, test.r2)
+		test := test
+		t.Run(test.r1+" intersect "+test.r2, func(t *testing.T) {
+			t.Parallel()
+			r1, err := makeVersionRange(test.r1)
+			testza.AssertNoError(t, err, "makeVersionRange(%s)", test.r1)
+			r2, err := makeVersionRange(test.r2)
+			testza.AssertNoError(t, err, "makeVersionRange(%s)", test.r2)
+			testza.AssertEqual(t, test.expected, r1.Intersect(r2), "%s.Intersect(%s)", test.r1, test.r2)
+		})
 	}
 }

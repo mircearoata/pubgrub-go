@@ -7,6 +7,8 @@ import (
 )
 
 func TestNewConstraint(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		constraint string
 		expected   Constraint
@@ -32,14 +34,20 @@ func TestNewConstraint(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		actual, err := NewConstraint(test.constraint)
-		testza.AssertNoError(t, err, "NewConstraint(%s)", test.constraint)
-		testza.AssertEqual(t, test.expected, actual, "NewConstraint(%s)", test.constraint)
-		testza.AssertEqual(t, test.constraint, actual.RawString(), "NewConstraint(%s).RawString()", test.constraint)
+		test := test
+		t.Run(test.constraint, func(t *testing.T) {
+			t.Parallel()
+			actual, err := NewConstraint(test.constraint)
+			testza.AssertNoError(t, err, "NewConstraint(%s)", test.constraint)
+			testza.AssertEqual(t, test.expected, actual, "NewConstraint(%s)", test.constraint)
+			testza.AssertEqual(t, test.constraint, actual.RawString(), "NewConstraint(%s).RawString()", test.constraint)
+		})
 	}
 }
 
 func TestConstraint_Intersect(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		c1       Constraint
 		c2       Constraint
@@ -56,7 +64,11 @@ func TestConstraint_Intersect(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		actual := test.c1.canonical().Intersect(test.c2.canonical())
-		testza.AssertEqual(t, test.expected, actual, "Intersect(%s, %s)", test.c1, test.c2)
+		test := test
+		t.Run(test.c1.String()+" intersect "+test.c2.String(), func(t *testing.T) {
+			t.Parallel()
+			actual := test.c1.canonical().Intersect(test.c2.canonical())
+			testza.AssertEqual(t, test.expected, actual, "Intersect(%s, %s)", test.c1, test.c2)
+		})
 	}
 }

@@ -8,6 +8,8 @@ import (
 )
 
 func TestMakeVersion_Valid(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		version  string
 		expected Version
@@ -21,14 +23,20 @@ func TestMakeVersion_Valid(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		v, err := NewVersion(test.version)
-		testza.AssertNoError(t, err, "NewVersion(%s)", test.version)
-		testza.AssertEqual(t, test.expected, v, "NewVersion(%s)", test.version)
-		testza.AssertEqual(t, test.version, v.RawString(), "NewVersion(%s).RawString()", test.version)
+		test := test
+		t.Run(test.version, func(t *testing.T) {
+			t.Parallel()
+			v, err := NewVersion(test.version)
+			testza.AssertNoError(t, err, "NewVersion(%s)", test.version)
+			testza.AssertEqual(t, test.expected, v, "NewVersion(%s)", test.version)
+			testza.AssertEqual(t, test.version, v.RawString(), "NewVersion(%s).RawString()", test.version)
+		})
 	}
 }
 
 func TestMakeVersion_Invalid(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		version string
 	}{
@@ -40,12 +48,18 @@ func TestMakeVersion_Invalid(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		_, err := NewVersion(test.version)
-		testza.AssertEqual(t, fmt.Sprintf("invalid version string: %s", test.version), err.Error(), "NewVersion(%s)", test.version)
+		test := test
+		t.Run(test.version, func(t *testing.T) {
+			t.Parallel()
+			_, err := NewVersion(test.version)
+			testza.AssertEqual(t, fmt.Sprintf("invalid version string: %s", test.version), err.Error(), "NewVersion(%s)", test.version)
+		})
 	}
 }
 
 func TestVersion_Compare(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		v1       Version
 		v2       Version
@@ -90,7 +104,11 @@ func TestVersion_Compare(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		actual := test.v1.Compare(test.v2)
-		testza.AssertEqual(t, test.expected, actual, "Compare(%s, %s)", test.v1, test.v2)
+		test := test
+		t.Run(test.v1.String()+" compare "+test.v2.String(), func(t *testing.T) {
+			t.Parallel()
+			actual := test.v1.Compare(test.v2)
+			testza.AssertEqual(t, test.expected, actual, "Compare(%s, %s)", test.v1, test.v2)
+		})
 	}
 }
