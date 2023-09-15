@@ -11,7 +11,6 @@ var rangeAny = versionRange{raw: "*"}
 // versionRange represents a continuous range of versions, including pre-releases
 // We do not care about the individual versions and symbols mentioned, but rather compute the
 // resulting intersection of all the ranges that the version should match and only store its endpoints.
-// TODO: currently we do not support parsing the hyphen range and the x-range
 type versionRange struct {
 	lowerBound     *Version
 	upperBound     *Version
@@ -22,15 +21,15 @@ type versionRange struct {
 }
 
 func makeVersionRange(v string) (versionRange, error) {
-	sections := strings.Split(v, " ")
 	result := versionRange{
 		raw: v,
 	}
+	v, err := deSugarRange(v)
+	if err != nil {
+		return versionRange{}, errors.Wrapf(err, "failed to de-sugar range %s", v)
+	}
+	sections := strings.Split(v, " ")
 	for _, s := range sections {
-		if s == "*" {
-			// The default range is any
-			continue
-		}
 		if s == "" {
 			continue
 		}
@@ -62,43 +61,6 @@ func makeVersionRange(v string) (versionRange, error) {
 				return versionRange{}, errors.Wrapf(err, "invalid version string parsing primitive range %s", s)
 			}
 			result = result.withUpperBound(ver, inclusive)
-			continue
-		}
-		if s[0] == '^' {
-			// caret range
-			lowerBound, err := NewVersion(strings.TrimPrefix(s, "^"))
-			if err != nil {
-				return versionRange{}, errors.Wrapf(err, "invalid version string parsing caret range %s", s)
-			}
-			result = result.withLowerBound(lowerBound, true)
-			var upperBound Version
-			switch {
-			case lowerBound.major != 0:
-				upperBound = lowerBound.bumpMajor()
-			case lowerBound.minor != 0:
-				upperBound = lowerBound.bumpMinor()
-			default:
-				upperBound = lowerBound.bumpPatch()
-			}
-			result = result.withUpperBound(upperBound, false)
-			continue
-		}
-		if s[0] == '~' {
-			// tilde range
-			lowerBound, err := NewVersion(strings.TrimPrefix(s, "~"))
-			if err != nil {
-				return versionRange{}, errors.Wrapf(err, "invalid version string parsing caret range %s", s)
-			}
-			result = result.withLowerBound(lowerBound, true)
-			var upperBound Version
-			if strings.Contains(s, ".") {
-				// minor version specified, allow only patch updates
-				upperBound = lowerBound.bumpMinor()
-			} else {
-				// only major version specified, allow minor and patch updates
-				upperBound = lowerBound.bumpMajor()
-			}
-			result = result.withUpperBound(upperBound, false)
 			continue
 		}
 		// exact version
