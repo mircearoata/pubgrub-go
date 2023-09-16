@@ -12,6 +12,14 @@ type SolvingErrorWriter interface {
 	Separate()
 }
 
+type IncompatibilityStringer interface {
+	IncompatibilityString(incompatibility *Incompatibility, rootPkg string) string
+}
+
+type TermStringer interface {
+	Term(t Term, includeVersion bool) string
+}
+
 type SolvingError struct {
 	cause *Incompatibility
 }

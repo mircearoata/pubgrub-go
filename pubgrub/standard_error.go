@@ -11,28 +11,31 @@ type StandardErrorWriter struct {
 	lineNumbers                map[int]int
 	incompatibilityLineNumbers map[*Incompatibility]int
 	rootPkg                    string
-	staticStrings              StandardErrorStaticStrings
-	stringer                   StandardErrorStringer
+	strings                    StandardCauseStrings
+	incompatibilityStringer    IncompatibilityStringer
 }
 
 func NewStandardErrorWriter(rootPkg string) *StandardErrorWriter {
-	return &StandardErrorWriter{
+	w := &StandardErrorWriter{
 		nextLine:                   1,
 		result:                     []string{},
 		lineNumbers:                map[int]int{},
 		incompatibilityLineNumbers: map[*Incompatibility]int{},
 		rootPkg:                    rootPkg,
-		staticStrings:              DefaultStandardErrorStrings,
-		stringer:                   DefaultStandardErrorStringer{},
+		strings:                    DefaultCauseStrings,
+		incompatibilityStringer:    NewStandardIncompatibilityStringer(),
 	}
+	return w
 }
 
-func (w *StandardErrorWriter) SetStaticStrings(s StandardErrorStaticStrings) {
-	w.staticStrings = s
+func (w *StandardErrorWriter) WithStrings(s StandardCauseStrings) *StandardErrorWriter {
+	w.strings = s
+	return w
 }
 
-func (w *StandardErrorWriter) SetStringer(s StandardErrorStringer) {
-	w.stringer = s
+func (w *StandardErrorWriter) WithIncompatibilityStringer(s IncompatibilityStringer) *StandardErrorWriter {
+	w.incompatibilityStringer = s
+	return w
 }
 
 func (w *StandardErrorWriter) String() string {
@@ -73,63 +76,6 @@ func (w *StandardErrorWriter) GetTag(incompatibility *Incompatibility) (int, boo
 	return 0, false
 }
 
-func (w *StandardErrorWriter) CauseString(c *Incompatibility) string {
-	if w.IsRoot(c) {
-		return w.staticStrings.ResolvingFailed
-	}
-	terms := c.Terms()
-	if len(terms) == 1 {
-		t := terms[0]
-		if t.Positive() {
-			if t.Constraint().IsAny() {
-				return fmt.Sprintf(w.staticStrings.IsForbidden, w.stringer.Term(t, false))
-			}
-			return fmt.Sprintf(w.staticStrings.IsForbidden, w.stringer.Term(t, true))
-		}
-		panic("negative term in cause")
-	}
-	var pkg, dep Term
-	if terms[0].Positive() {
-		pkg = terms[0]
-		dep = terms[1]
-	} else {
-		pkg = terms[1]
-		dep = terms[0]
-	}
-	if dep.Positive() {
-		if c.dependant != "" {
-			// This is an optional dependency, which has a positive term, but with an inverse constraint
-			// We revert the constraint here to get the term in a similar format to the others
-			if pkg.Dependency() != c.dependant {
-				pkg, dep = dep, pkg
-			}
-		} else {
-			// What can we do here to determine a logical order of the terms?
-			// For now, we can just order them by the package name,
-			// so that the order is consistent between runs at least
-
-			// Maybe we can do some heuristics on the version constraint
-			// to see for which of the terms the inverse makes more sense than the original
-			// One such heuristic could be the number of ranges in the constraint
-
-			if pkg.Dependency() > dep.Dependency() {
-				pkg, dep = dep, pkg
-			}
-		}
-		dep = dep.Inverse()
-	}
-	if pkg.Dependency() == w.rootPkg {
-		return fmt.Sprintf(w.staticStrings.Installing, w.stringer.Term(dep, true))
-	}
-	if dep.Constraint().IsEmpty() {
-		return fmt.Sprintf(w.staticStrings.Forbids, w.stringer.Term(pkg, true), w.stringer.Term(dep, false))
-	}
-	if dep.Constraint().IsAny() {
-		return fmt.Sprintf(w.staticStrings.DependsOn, w.stringer.Term(pkg, true), w.stringer.Term(dep, false))
-	}
-	return fmt.Sprintf(w.staticStrings.DependsOn, w.stringer.Term(pkg, true), w.stringer.Term(dep, true))
-}
-
 func (w *StandardErrorWriter) WriteLine(line string) {
 	w.result = append(w.result, line)
 }
@@ -141,46 +87,46 @@ func (w *StandardErrorWriter) IsRoot(incompatibility *Incompatibility) bool {
 
 func (w *StandardErrorWriter) WriteLineTwoCauses(cause1, cause2, incompatibility *Incompatibility) {
 	if w.IsRoot(incompatibility) {
-		w.WriteLine(fmt.Sprintf(w.staticStrings.TwoCausesFinal, w.CauseString(cause1), w.CauseString(cause2), w.CauseString(incompatibility)))
+		w.WriteLine(fmt.Sprintf(w.strings.TwoCausesFinal, w.incompatibilityStringer.IncompatibilityString(cause1, w.rootPkg), w.incompatibilityStringer.IncompatibilityString(cause2, w.rootPkg), w.incompatibilityStringer.IncompatibilityString(incompatibility, w.rootPkg)))
 	} else {
-		w.WriteLine(fmt.Sprintf(w.staticStrings.TwoCauses, w.CauseString(cause1), w.CauseString(cause2), w.CauseString(incompatibility)))
+		w.WriteLine(fmt.Sprintf(w.strings.TwoCauses, w.incompatibilityStringer.IncompatibilityString(cause1, w.rootPkg), w.incompatibilityStringer.IncompatibilityString(cause2, w.rootPkg), w.incompatibilityStringer.IncompatibilityString(incompatibility, w.rootPkg)))
 	}
 }
 
 func (w *StandardErrorWriter) WriteLineTwoCausesOneTag(cause1, cause2, incompatibility *Incompatibility, line2 int) {
 	if w.IsRoot(incompatibility) {
-		w.WriteLine(fmt.Sprintf(w.staticStrings.TwoCausesOneTagFinal, w.CauseString(cause1), w.CauseString(cause2), line2, w.CauseString(incompatibility)))
+		w.WriteLine(fmt.Sprintf(w.strings.TwoCausesOneTagFinal, w.incompatibilityStringer.IncompatibilityString(cause1, w.rootPkg), w.incompatibilityStringer.IncompatibilityString(cause2, w.rootPkg), line2, w.incompatibilityStringer.IncompatibilityString(incompatibility, w.rootPkg)))
 	} else {
-		w.WriteLine(fmt.Sprintf(w.staticStrings.TwoCausesOneTag, w.CauseString(cause1), w.CauseString(cause2), line2, w.CauseString(incompatibility)))
+		w.WriteLine(fmt.Sprintf(w.strings.TwoCausesOneTag, w.incompatibilityStringer.IncompatibilityString(cause1, w.rootPkg), w.incompatibilityStringer.IncompatibilityString(cause2, w.rootPkg), line2, w.incompatibilityStringer.IncompatibilityString(incompatibility, w.rootPkg)))
 	}
 }
 
 func (w *StandardErrorWriter) WriteLineTwoCausesTwoTags(cause1, cause2, incompatibility *Incompatibility, line1, line2 int) {
 	if w.IsRoot(incompatibility) {
-		w.WriteLine(fmt.Sprintf(w.staticStrings.TwoCausesTwoTagsFinal, w.CauseString(cause1), line1, w.CauseString(cause2), line2, w.CauseString(incompatibility)))
+		w.WriteLine(fmt.Sprintf(w.strings.TwoCausesTwoTagsFinal, w.incompatibilityStringer.IncompatibilityString(cause1, w.rootPkg), line1, w.incompatibilityStringer.IncompatibilityString(cause2, w.rootPkg), line2, w.incompatibilityStringer.IncompatibilityString(incompatibility, w.rootPkg)))
 	} else {
-		w.WriteLine(fmt.Sprintf(w.staticStrings.TwoCausesTwoTags, w.CauseString(cause1), line1, w.CauseString(cause2), line2, w.CauseString(incompatibility)))
+		w.WriteLine(fmt.Sprintf(w.strings.TwoCausesTwoTags, w.incompatibilityStringer.IncompatibilityString(cause1, w.rootPkg), line1, w.incompatibilityStringer.IncompatibilityString(cause2, w.rootPkg), line2, w.incompatibilityStringer.IncompatibilityString(incompatibility, w.rootPkg)))
 	}
 }
 
 func (w *StandardErrorWriter) WriteLineOneCause(cause, incompatibility *Incompatibility) {
 	if w.IsRoot(incompatibility) {
-		w.WriteLine(fmt.Sprintf(w.staticStrings.OneCauseFinal, w.CauseString(cause), w.CauseString(incompatibility)))
+		w.WriteLine(fmt.Sprintf(w.strings.OneCauseFinal, w.incompatibilityStringer.IncompatibilityString(cause, w.rootPkg), w.incompatibilityStringer.IncompatibilityString(incompatibility, w.rootPkg)))
 	} else {
-		w.WriteLine(fmt.Sprintf(w.staticStrings.OneCause, w.CauseString(cause), w.CauseString(incompatibility)))
+		w.WriteLine(fmt.Sprintf(w.strings.OneCause, w.incompatibilityStringer.IncompatibilityString(cause, w.rootPkg), w.incompatibilityStringer.IncompatibilityString(incompatibility, w.rootPkg)))
 	}
 }
 
 func (w *StandardErrorWriter) WriteLineOneCauseOneTag(cause, incompatibility *Incompatibility, line int) {
 	if w.IsRoot(incompatibility) {
-		w.WriteLine(fmt.Sprintf(w.staticStrings.OneCauseOneTagFinal, w.CauseString(cause), line, w.CauseString(incompatibility)))
+		w.WriteLine(fmt.Sprintf(w.strings.OneCauseOneTagFinal, w.incompatibilityStringer.IncompatibilityString(cause, w.rootPkg), line, w.incompatibilityStringer.IncompatibilityString(incompatibility, w.rootPkg)))
 	} else {
-		w.WriteLine(fmt.Sprintf(w.staticStrings.OneCauseOneTag, w.CauseString(cause), line, w.CauseString(incompatibility)))
+		w.WriteLine(fmt.Sprintf(w.strings.OneCauseOneTag, w.incompatibilityStringer.IncompatibilityString(cause, w.rootPkg), line, w.incompatibilityStringer.IncompatibilityString(incompatibility, w.rootPkg)))
 	}
 }
 
 func (w *StandardErrorWriter) WriteLineNoCause(incompatibility *Incompatibility) {
-	w.WriteLine(fmt.Sprintf(w.staticStrings.NoCause, w.CauseString(incompatibility)))
+	w.WriteLine(fmt.Sprintf(w.strings.NoCause, w.incompatibilityStringer.IncompatibilityString(incompatibility, w.rootPkg)))
 }
 
 func (w *StandardErrorWriter) Separate() {
