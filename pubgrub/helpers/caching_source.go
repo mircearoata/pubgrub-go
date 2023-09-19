@@ -1,6 +1,8 @@
 package helpers
 
 import (
+	"sync"
+
 	"github.com/mircearoata/pubgrub-go/pubgrub"
 )
 
@@ -12,35 +14,37 @@ type cacheInstance struct {
 
 type CachingSource struct {
 	pubgrub.Source
-	cache map[string]*cacheInstance
+	cache sync.Map
 }
 
 func NewCachingSource(source pubgrub.Source) *CachingSource {
 	return &CachingSource{
 		Source: source,
-		cache:  make(map[string]*cacheInstance),
+		cache:  sync.Map{},
 	}
 }
 
 func (s *CachingSource) GetPackageVersions(pkg string) ([]pubgrub.PackageVersion, error) {
-	if v, ok := s.cache[pkg]; ok {
-		<-v.Waiter
-		return v.Versions, v.Error
-	}
-
-	s.cache[pkg] = &cacheInstance{
+	actual, loaded := s.cache.LoadOrStore(pkg, &cacheInstance{
 		Versions: nil,
 		Error:    nil,
 		Waiter:   make(chan bool),
+	})
+
+	instance := actual.(*cacheInstance)
+
+	if loaded {
+		<-instance.Waiter
+		return instance.Versions, instance.Error
 	}
 
 	defer func() {
-		close(s.cache[pkg].Waiter)
+		close(instance.Waiter)
 	}()
 
 	result, err := s.Source.GetPackageVersions(pkg)
-	s.cache[pkg].Versions = result
-	s.cache[pkg].Error = err
+	instance.Versions = result
+	instance.Error = err
 
 	if err != nil {
 		return nil, err //nolint:wrapcheck
