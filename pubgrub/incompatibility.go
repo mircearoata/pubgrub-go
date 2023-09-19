@@ -90,7 +90,7 @@ func (in Incompatibility) makePriorCause(c *Incompatibility, satisfier string) *
 func (in Incompatibility) add(t Term) {
 	existingTerm := in.get(t.pkg)
 	if existingTerm != nil {
-		*existingTerm = existingTerm.intersect(t)
+		in.terms[t.pkg] = existingTerm.intersect(t)
 	} else {
 		in.terms[t.pkg] = t
 	}
