@@ -11,11 +11,11 @@ func StandardVersionPriority(versions []semver.Version) semver.Version {
 	for _, v := range versions {
 		v := v
 		if v.IsPrerelease() {
-			if latestPrerelease.Compare(v) < 0 {
+			if latestPrerelease == nil || latestPrerelease.Compare(v) < 0 {
 				latestPrerelease = &v
 			}
 		} else {
-			if latestRelease.Compare(v) < 0 {
+			if latestRelease == nil || latestRelease.Compare(v) < 0 {
 				latestRelease = &v
 			}
 		}
