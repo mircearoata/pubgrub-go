@@ -41,6 +41,17 @@ func Solve(source Source, rootPkg string) (map[string]semver.Version, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		// Prefetch all positive undecided packages
+		go func() {
+			undecided := s.partialSolution.allPositiveUndecided()
+			for _, pkg := range undecided {
+				go func(pkg string) {
+					_, _ = s.source.GetPackageVersions(pkg)
+				}(pkg)
+			}
+		}()
+
 		var done bool
 		next, done, err = s.decision()
 		if err != nil {
