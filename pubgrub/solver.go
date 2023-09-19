@@ -178,11 +178,19 @@ func (s *solver) decision() (string, bool, error) {
 	}
 
 	availableVersions := make([]semver.Version, 0, len(versions))
-	var compatibleVersions []semver.Version
 	for _, v := range versions {
 		availableVersions = append(availableVersions, v.Version)
-		if t.versionConstraint.Contains(v.Version) {
-			compatibleVersions = append(compatibleVersions, v.Version)
+	}
+
+	// Sort versions in ascending order
+	slices.SortFunc(availableVersions, func(a, b semver.Version) int {
+		return a.Compare(b)
+	})
+
+	var compatibleVersions []semver.Version
+	for _, v := range availableVersions {
+		if t.versionConstraint.Contains(v) {
+			compatibleVersions = append(compatibleVersions, v)
 		}
 	}
 
@@ -192,16 +200,6 @@ func (s *solver) decision() (string, bool, error) {
 		})
 		return pkg, false, nil
 	}
-
-	// Sort versions in ascending order
-	slices.SortFunc(availableVersions, func(a, b semver.Version) int {
-		return a.Compare(b)
-	})
-
-	// Sort compatible versions in descending order
-	slices.SortFunc(compatibleVersions, func(a, b semver.Version) int {
-		return b.Compare(a)
-	})
 
 	chosenVersion := s.source.PickVersion(t.pkg, compatibleVersions)
 
