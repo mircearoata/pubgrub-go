@@ -94,20 +94,38 @@ func (ps *partialSolution) prefix(size int) partialSolution {
 }
 
 func (ps *partialSolution) findPositiveUndecided() string {
-	var decidedPackages []string
+	decidedPackages := make(map[string]bool)
 	for _, a := range ps.assignments {
 		if _, ok := a.(decision); ok {
-			decidedPackages = append(decidedPackages, a.Package())
+			decidedPackages[a.Package()] = true
 		}
 	}
 	for _, a := range ps.assignments {
 		if der, ok := a.(derivation); ok {
-			if der.t.positive && !slices.Contains(decidedPackages, der.t.pkg) {
+			if _, ok := decidedPackages[der.t.pkg]; der.t.positive && !ok {
 				return der.t.pkg
 			}
 		}
 	}
 	return ""
+}
+
+func (ps *partialSolution) allPositiveUndecided() []string {
+	decidedPackages := make(map[string]bool)
+	for _, a := range ps.assignments {
+		if _, ok := a.(decision); ok {
+			decidedPackages[a.Package()] = true
+		}
+	}
+	var undecidedPackages []string
+	for _, a := range ps.assignments {
+		if der, ok := a.(derivation); ok {
+			if _, ok := decidedPackages[der.t.pkg]; der.t.positive && !ok {
+				undecidedPackages = append(undecidedPackages, der.t.pkg)
+			}
+		}
+	}
+	return undecidedPackages
 }
 
 func (ps *partialSolution) decisionsMap() map[string]semver.Version {
