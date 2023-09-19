@@ -1,8 +1,9 @@
 package helpers
 
 import (
-	"github.com/mircearoata/pubgrub-go/pubgrub"
 	"sync"
+
+	"github.com/mircearoata/pubgrub-go/pubgrub"
 )
 
 type cacheInstance struct {
