@@ -43,8 +43,8 @@ func Solve(source Source, rootPkg string) (map[string]semver.Version, error) {
 		}
 
 		// Prefetch all positive undecided packages
+		undecided := s.partialSolution.allPositiveUndecided()
 		go func() {
-			undecided := s.partialSolution.allPositiveUndecided()
 			for _, pkg := range undecided {
 				go func(pkg string) {
 					_, _ = s.source.GetPackageVersions(pkg)
