@@ -15,6 +15,7 @@ func TestMakeVersion_Valid(t *testing.T) {
 		expected Version
 	}{
 		{"1.2.3", Version{1, 2, 3, nil, nil, "1.2.3"}},
+		{"v1.2.3", Version{1, 2, 3, nil, nil, "v1.2.3"}},
 		{"1.2.3-alpha", Version{1, 2, 3, []string{"alpha"}, nil, "1.2.3-alpha"}},
 		{"1.2.3+build", Version{1, 2, 3, nil, []string{"build"}, "1.2.3+build"}},
 		{"1.2.3-alpha+build", Version{1, 2, 3, []string{"alpha"}, []string{"build"}, "1.2.3-alpha+build"}},

@@ -16,6 +16,7 @@ func TestNewConstraint(t *testing.T) {
 		// already canonical
 		// doesn't need too much testing on basic parsing, since that's tested in version_range_test.go
 		{"1.2.3", Constraint{[]versionRange{{&Version{major: 1, minor: 2, patch: 3, raw: "1.2.3"}, &Version{major: 1, minor: 2, patch: 3, raw: "1.2.3"}, true, true, "1.2.3"}}, "1.2.3"}},
+		{"v1.2.3", Constraint{[]versionRange{{&Version{major: 1, minor: 2, patch: 3, raw: "v1.2.3"}, &Version{major: 1, minor: 2, patch: 3, raw: "v1.2.3"}, true, true, "1.2.3"}}, "v1.2.3"}},
 		{"1.2.3 || 2.3.4", Constraint{[]versionRange{{&Version{major: 1, minor: 2, patch: 3, raw: "1.2.3"}, &Version{major: 1, minor: 2, patch: 3, raw: "1.2.3"}, true, true, "1.2.3"}, {&Version{major: 2, minor: 3, patch: 4, raw: "2.3.4"}, &Version{major: 2, minor: 3, patch: 4, raw: "2.3.4"}, true, true, "2.3.4"}}, "1.2.3 || 2.3.4"}},
 		// canonicalization
 		{"1.2.3 || 1.2.3", Constraint{[]versionRange{{&Version{major: 1, minor: 2, patch: 3, raw: "1.2.3"}, &Version{major: 1, minor: 2, patch: 3, raw: "1.2.3"}, true, true, "1.2.3"}}, "1.2.3 || 1.2.3"}},

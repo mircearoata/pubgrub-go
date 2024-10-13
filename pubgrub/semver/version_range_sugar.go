@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	xVersion         = `([0-9]+|x|X|\*)(?:\.([0-9]+|x|X|\*))?(?:\.([0-9]+|x|X|\*))?(?:-([0-9A-Za-z\-]+(?:\.[0-9A-Za-z\-]+)*))?(?:\+([0-9A-Za-z\-]+(?:\.[0-9A-Za-z\-]+)*))?`
+	xVersion         = `v?([0-9]+|x|X|\*)(?:\.([0-9]+|x|X|\*))?(?:\.([0-9]+|x|X|\*))?(?:-([0-9A-Za-z\-]+(?:\.[0-9A-Za-z\-]+)*))?(?:\+([0-9A-Za-z\-]+(?:\.[0-9A-Za-z\-]+)*))?`
 	xVersionNoGroups = strings.ReplaceAll(strings.ReplaceAll(xVersion, "(", "(?:"), "?:?:", "?:")
 	hyphenRange      = regexp.MustCompile(fmt.Sprintf(`(%s) - (%s)`, xVersionNoGroups, xVersionNoGroups))
 	caretRangeRegex  = regexp.MustCompile(fmt.Sprintf(`^\^%s$`, xVersion))

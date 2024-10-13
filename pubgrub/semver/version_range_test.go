@@ -201,6 +201,7 @@ func TestVersionRange_IsEmpty(t *testing.T) {
 		versionRange string
 		expected     bool
 	}{
+		{"v1.2.3", false},
 		{"1.2.3", false},
 		{"=1.2.3", false},
 		{">=1.2.3", false},
@@ -242,6 +243,7 @@ func TestVersionRange_Equal(t *testing.T) {
 		expected bool
 	}{
 		{"1.2.3", "1.2.3", true},
+		{"1.2.3", "v1.2.3", true},
 		{"1.2.3", "1.2.4", false},
 		{"1.2.3", "1.2.2", false},
 		{"1.2.3", "1.2.3-alpha", false},
