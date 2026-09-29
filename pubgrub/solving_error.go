@@ -154,7 +154,7 @@ func writeErrorMessageRecursive(c *Incompatibility, writer SolvingErrorWriter) {
 			}
 
 			writeErrorMessageRecursive(priorDerived, writer)
-			writer.WriteLineOneCause(priorExternal, c)
+			writer.WriteLineTwoCauses(priorExternal, external, c)
 			return
 		}
 
