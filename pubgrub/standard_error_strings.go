@@ -1,6 +1,10 @@
 package pubgrub
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+	"strings"
+)
 
 type StandardCauseStrings struct {
 	TwoCauses             string
@@ -33,19 +37,23 @@ var DefaultCauseStrings = StandardCauseStrings{
 type StandardIncompatibilityStrings struct {
 	ResolvingFailed string
 
-	DependsOn   string
-	Installing  string
-	Forbids     string
-	IsForbidden string
+	DependsOn       string
+	Installing      string
+	Forbids         string
+	IsForbidden     string
+	AreIncompatible string
+	IsRequired      string
 }
 
 var DefaultIncompatibilityStrings = StandardIncompatibilityStrings{
 	ResolvingFailed: "version solving failed",
 
-	DependsOn:   "%s depends on %s",
-	Installing:  "installing %s",
-	Forbids:     "%s forbids %s",
-	IsForbidden: "%s is forbidden",
+	DependsOn:       "%s depends on %s",
+	Installing:      "installing %s",
+	Forbids:         "%s forbids %s",
+	IsForbidden:     "%s is forbidden",
+	AreIncompatible: "%s are incompatible",
+	IsRequired:      "%s is required",
 }
 
 type StandardTermStringer struct{}
@@ -94,7 +102,17 @@ func (w StandardIncompatibilityStringer) IncompatibilityString(c *Incompatibilit
 			}
 			return fmt.Sprintf(w.strings.IsForbidden, w.termStringer.Term(t, true))
 		}
-		panic("negative term in cause")
+		return fmt.Sprintf(w.strings.IsRequired, w.termStringer.Term(t, true))
+	}
+	if len(terms) >= 3 {
+		slices.SortFunc(terms, func(a, b Term) int {
+			return strings.Compare(a.Dependency(), b.Dependency())
+		})
+		formattedTerms := make([]string, 0, len(terms))
+		for _, t := range terms {
+			formattedTerms = append(formattedTerms, w.termStringer.Term(t, true))
+		}
+		return fmt.Sprintf(w.strings.AreIncompatible, strings.Join(formattedTerms, ", "))
 	}
 	var pkg, dep Term
 	if terms[0].Positive() {
