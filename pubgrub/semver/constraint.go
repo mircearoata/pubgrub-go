@@ -124,13 +124,20 @@ func (v Constraint) canonical() Constraint {
 			if result != 0 {
 				return result
 			}
-			// If the versions are equal, order the lower bound before the upper bound for the merge to continue,
-			// but only if the one of the bounds is inclusive
-			if a.isUpper != b.isUpper && (a.isInclusive || b.isInclusive) {
-				if a.isUpper {
-					return 1
+			// If the versions are equal and one is upper and one is lower:
+			if a.isUpper != b.isUpper {
+				if a.isInclusive || b.isInclusive {
+					// One is inclusive: order lower bound before upper bound for the merge to continue
+					if a.isUpper {
+						return 1
+					}
+					return -1
 				}
-				return -1
+				// Neither is inclusive: order upper bound before lower bound to keep the excluded version
+				if a.isUpper {
+					return -1
+				}
+				return 1
 			}
 			// If the versions are the same version and type, order the inclusive bound at the outer point based on type
 			if a.isInclusive != b.isInclusive {
