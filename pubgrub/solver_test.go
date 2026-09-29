@@ -220,7 +220,7 @@ func TestSolver_BranchingErrorReporting(t *testing.T) {
 
 	result, err := Solve(source, "$$root$$")
 	testza.AssertNil(t, result)
-	expected := "   Because foo \"<1.1.0\" depends on a \"^1.0.0\" and every version of a depends on b \"^2.0.0\", foo \"<1.1.0\" depends on b \"^2.0.0\".\n1. And because foo \"<1.1.0\" depends on b \"^1.0.0\", foo \"<1.1.0\" is forbidden.\n\n   Because foo \">=1.1.0\" depends on x \"^1.0.0\" and every version of x depends on y \"^2.0.0\", foo \">=1.1.0\" depends on y \"^2.0.0\".\n2. And because foo \">=1.1.0\" depends on y \"^1.0.0\", foo \">=1.1.0\" is forbidden.\n   And because foo \"<1.1.0\" is forbidden (1), foo is forbidden.\n   So, because installing foo \"^1.0.0\", version solving failed."
+	expected := "   Because foo \"<1.1.0\" depends on a \"^1.0.0\" and every version of a depends on b \"^2.0.0\", foo \"<1.1.0\" depends on b \"^2.0.0\".\n1. And because foo \"<1.1.0\" depends on b \"^1.0.0\", foo \"<1.1.0\" is forbidden.\n\n   Because foo \">=1.1.0\" depends on x \"^1.0.0\" and every version of x depends on y \"^2.0.0\", foo \">=1.1.0\" depends on y \"^2.0.0\".\n2. And because foo \">=1.1.0\" depends on y \"^1.0.0\", foo \">=1.1.0\" is forbidden.\n   And because foo \"<1.1.0\" is forbidden (1), every version of foo is forbidden.\n   So, because installing foo \"^1.0.0\", version solving failed."
 	testza.AssertEqual(t, expected, err.Error())
 }
 
@@ -382,4 +382,111 @@ func TestSolver_OptionalDependencies_Error(t *testing.T) {
 	testza.AssertNil(t, result)
 	expected := "Because every version of bar depends on baz \"^2.0.0\" and every version of foo depends on baz \"^1.0.0\", every version of bar forbids foo.\nSo, because installing bar \"^1.0.0\" and installing foo \"^1.0.0\", version solving failed."
 	testza.AssertEqual(t, expected, err.Error())
+}
+
+type customPkgFormatter struct{}
+
+func (f customPkgFormatter) FormatPackage(pkg string) string {
+	if pkg == "foo" {
+		return "foo2"
+	}
+	return pkg
+}
+
+type customConstraintFormatter struct{}
+
+func (f customConstraintFormatter) FormatConstraint(_ string, c semver.Constraint) string {
+	return "v" + c.String()
+}
+
+func TestSolver_Formatters(t *testing.T) {
+	t.Parallel()
+
+	source := mockSource{
+		packages: map[string][]PackageVersion{
+			"$$root$$": {
+				{
+					Version: newVersion("1.0.0"),
+					Dependencies: map[string]semver.Constraint{
+						"foo": newConstraint("^1.0.0"),
+						"bar": newConstraint("^1.0.0"),
+					},
+				},
+			},
+			"foo": {
+				{
+					Version: newVersion("1.0.0"),
+					OptionalDependencies: map[string]semver.Constraint{
+						"baz": newConstraint("^1.0.0"),
+					},
+				},
+			},
+			"bar": {
+				{
+					Version: newVersion("1.0.0"),
+					Dependencies: map[string]semver.Constraint{
+						"baz": newConstraint("^2.0.0"),
+					},
+				},
+			},
+			"baz": {
+				{Version: newVersion("1.0.0")},
+				{Version: newVersion("2.0.0")},
+			},
+		},
+	}
+
+	result, err := Solve(source, "$$root$$")
+	testza.AssertNil(t, result)
+	var solverErr SolvingError
+	testza.AssertTrue(t, errors.As(err, &solverErr))
+
+	textReporter := NewStandardTextReporter().
+		WithTermStringer(
+			NewStandardTermStringer().
+				WithPackageFormatter(customPkgFormatter{}).
+				WithConstraintFormatter(customConstraintFormatter{}),
+		)
+	rendered := textReporter.Render(solverErr.Report())
+	testza.AssertEqual(t, "Because every version of bar depends on baz \"v^2.0.0\" and every version of foo2 depends on baz \"v^1.0.0\", every version of bar forbids foo2.\nSo, because installing bar \"v^1.0.0\" and installing foo2 \"v^1.0.0\", version solving failed.", rendered)
+}
+
+func TestSolver_CustomStrings(t *testing.T) {
+	t.Parallel()
+
+	source := mockSource{
+		packages: map[string][]PackageVersion{
+			"$$root$$": {
+				{
+					Version: newVersion("1.0.0"),
+					Dependencies: map[string]semver.Constraint{
+						"foo": newConstraint("^1.0.0"),
+					},
+				},
+			},
+			"foo": {},
+		},
+	}
+
+	result, err := Solve(source, "$$root$$")
+	testza.AssertNil(t, result)
+	var solverErr SolvingError
+	testza.AssertTrue(t, errors.As(err, &solverErr))
+
+	customCauses := DefaultCauseStrings
+	customCauses.Because = "(Because) %s, %s."
+
+	customIncompats := DefaultIncompatibilityStrings
+	customIncompats.Installing = "(install) %s"
+	customIncompats.ResolvingFailed = "(failed)"
+
+	reporter := NewStandardTextReporter().
+		WithStrings(customCauses).
+		WithIncompatibilityStringer(
+			NewStandardIncompatibilityStringer().
+				WithStrings(customIncompats),
+		)
+
+	rendered := reporter.Render(solverErr.Report())
+	testza.AssertEqual(t, "So, because (install) foo \"^1.0.0\" and foo \"^1.0.0\" is forbidden, (failed).", rendered)
 }

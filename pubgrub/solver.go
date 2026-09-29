@@ -105,7 +105,7 @@ func (s *solver) conflictResolution(fromIncompatibility *Incompatibility) (*Inco
 	incompatibilityChanged := false
 	for {
 		if s.isIncompatibilityTerminal(fromIncompatibility) {
-			return nil, SolvingError{fromIncompatibility}
+			return nil, SolvingError{cause: fromIncompatibility, rootPkg: s.rootPkg}
 		}
 
 		satisfierIdx := util.BinarySearchFunc(0, len(s.partialSolution.assignments), func(i int) bool {

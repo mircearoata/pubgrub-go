@@ -1,8 +1,6 @@
 package pubgrub
 
 import (
-	"fmt"
-
 	"github.com/mircearoata/pubgrub-go/pubgrub/semver"
 )
 
@@ -108,11 +106,4 @@ func (t Term) intersect(other Term) Term {
 
 func (t Term) difference(other Term) Term {
 	return t.intersect(other.Negate())
-}
-
-func (t Term) String() string {
-	if t.versionConstraint.IsAny() {
-		return fmt.Sprintf("every version of %s", t.pkg)
-	}
-	return fmt.Sprintf("%s \"%s\"", t.pkg, t.versionConstraint)
 }

@@ -1,5 +1,10 @@
 package pubgrub
 
+import (
+	"slices"
+	"strings"
+)
+
 type Incompatibility struct {
 	terms     map[string]Term
 	causes    []*Incompatibility
@@ -11,11 +16,22 @@ func (in *Incompatibility) Terms() []Term {
 	for _, t := range in.terms {
 		terms = append(terms, t)
 	}
+	slices.SortFunc(terms, func(a, b Term) int {
+		return strings.Compare(a.pkg, b.pkg)
+	})
 	return terms
 }
 
 func (in *Incompatibility) Causes() []*Incompatibility {
 	return in.causes
+}
+
+func (in *Incompatibility) Packages() []string {
+	pkgs := make([]string, 0, len(in.terms))
+	for _, t := range in.Terms() {
+		pkgs = append(pkgs, t.pkg)
+	}
+	return pkgs
 }
 
 func (in *Incompatibility) get(pkg string) *Term {

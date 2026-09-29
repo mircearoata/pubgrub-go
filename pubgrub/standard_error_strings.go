@@ -4,34 +4,26 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+
+	"github.com/mircearoata/pubgrub-go/pubgrub/semver"
 )
 
 type StandardCauseStrings struct {
-	TwoCauses             string
-	TwoCausesFinal        string
-	TwoCausesOneTag       string
-	TwoCausesOneTagFinal  string
-	TwoCausesTwoTags      string
-	TwoCausesTwoTagsFinal string
-	OneCause              string
-	OneCauseFinal         string
-	OneCauseOneTag        string
-	OneCauseOneTagFinal   string
-	NoCause               string
+	Because    string
+	AndBecause string
+	SoBecause  string
+	Thus       string
+	AndCauses  string
+	CauseRef   string
 }
 
 var DefaultCauseStrings = StandardCauseStrings{
-	TwoCauses:             "Because %s and %s, %s.",
-	TwoCausesFinal:        "So, because %s and %s, %s.",
-	TwoCausesOneTag:       "Because %s and %s (%d), %s.",
-	TwoCausesOneTagFinal:  "So, because %s and %s (%d), %s.",
-	TwoCausesTwoTags:      "Because %s (%d) and %s (%d), %s.",
-	TwoCausesTwoTagsFinal: "So, because %s (%d) and %s (%d), %s.",
-	OneCause:              "And because %s, %s.",
-	OneCauseFinal:         "So, because %s, %s.",
-	OneCauseOneTag:        "And because %s (%d), %s.",
-	OneCauseOneTagFinal:   "So, because %s (%d), %s.",
-	NoCause:               "Thus, %s.",
+	Because:    "Because %s, %s.",
+	AndBecause: "And because %s, %s.",
+	SoBecause:  "So, because %s, %s.",
+	Thus:       "Thus, %s.",
+	AndCauses:  "%s and %s",
+	CauseRef:   "%s (%d)",
 }
 
 type StandardIncompatibilityStrings struct {
@@ -43,6 +35,7 @@ type StandardIncompatibilityStrings struct {
 	IsForbidden     string
 	AreIncompatible string
 	IsRequired      string
+	ListSeparator   string
 }
 
 var DefaultIncompatibilityStrings = StandardIncompatibilityStrings{
@@ -54,24 +47,95 @@ var DefaultIncompatibilityStrings = StandardIncompatibilityStrings{
 	IsForbidden:     "%s is forbidden",
 	AreIncompatible: "%s are incompatible",
 	IsRequired:      "%s is required",
+	ListSeparator:   ", ",
 }
 
-type StandardTermStringer struct{}
+type StandardTermStrings struct {
+	EveryVersionOf string
+	Default        string
+}
 
-func (w StandardTermStringer) Term(t Term, includeVersion bool) string {
-	if includeVersion {
-		return t.String()
+var DefaultTermStrings = StandardTermStrings{
+	EveryVersionOf: "every version of %s",
+	Default:        "%s \"%s\"",
+}
+
+type IncompatibilityStringer interface {
+	IncompatibilityString(incompatibility *Incompatibility, ts TermStringer, rootPkg string) string
+}
+
+type TermStringer interface {
+	Term(t Term, allowEvery bool) string
+}
+
+type PackageFormatter interface {
+	FormatPackage(pkg string) string
+}
+
+type ConstraintFormatter interface {
+	FormatConstraint(pkg string, c semver.Constraint) string
+}
+
+type StandardTermStringer struct {
+	strings             StandardTermStrings
+	packageFormatter    PackageFormatter
+	constraintFormatter ConstraintFormatter
+}
+
+func NewStandardTermStringer() StandardTermStringer {
+	return StandardTermStringer{strings: DefaultTermStrings}
+}
+
+func (w StandardTermStringer) WithStrings(strings StandardTermStrings) StandardTermStringer {
+	w.strings = strings
+	return w
+}
+
+func (w StandardTermStringer) WithPackageFormatter(f PackageFormatter) StandardTermStringer {
+	w.packageFormatter = f
+	return w
+}
+
+func (w StandardTermStringer) WithConstraintFormatter(f ConstraintFormatter) StandardTermStringer {
+	w.constraintFormatter = f
+	return w
+}
+
+func (w StandardTermStringer) FormatPackage(pkg string) string {
+	if w.packageFormatter != nil {
+		return w.packageFormatter.FormatPackage(pkg)
 	}
-	return t.Dependency()
+	return pkg
+}
+
+func (w StandardTermStringer) FormatConstraint(pkg string, c semver.Constraint) string {
+	if w.constraintFormatter != nil {
+		return w.constraintFormatter.FormatConstraint(pkg, c)
+	}
+	return c.String()
+}
+
+func (w StandardTermStringer) Term(t Term, allowEvery bool) string {
+	pkgName := w.FormatPackage(t.Dependency())
+	if t.Constraint().IsAny() {
+		if allowEvery {
+			return fmt.Sprintf(w.strings.EveryVersionOf, pkgName)
+		}
+		return pkgName
+	}
+	if t.Constraint().IsEmpty() {
+		return pkgName
+	}
+	constraintStr := w.FormatConstraint(t.Dependency(), t.Constraint())
+	return fmt.Sprintf(w.strings.Default, pkgName, constraintStr)
 }
 
 type StandardIncompatibilityStringer struct {
-	strings      StandardIncompatibilityStrings
-	termStringer TermStringer
+	strings StandardIncompatibilityStrings
 }
 
 func NewStandardIncompatibilityStringer() StandardIncompatibilityStringer {
-	return StandardIncompatibilityStringer{strings: DefaultIncompatibilityStrings, termStringer: StandardTermStringer{}}
+	return StandardIncompatibilityStringer{strings: DefaultIncompatibilityStrings}
 }
 
 func (w StandardIncompatibilityStringer) WithStrings(strings StandardIncompatibilityStrings) StandardIncompatibilityStringer {
@@ -79,30 +143,23 @@ func (w StandardIncompatibilityStringer) WithStrings(strings StandardIncompatibi
 	return w
 }
 
-func (w StandardIncompatibilityStringer) WithTermStringer(termStringer TermStringer) StandardIncompatibilityStringer {
-	w.termStringer = termStringer
-	return w
-}
-
-func (w StandardIncompatibilityStringer) IsRoot(incompatibility *Incompatibility, rootPkg string) bool {
+func (w StandardIncompatibilityStringer) isRoot(incompatibility *Incompatibility, rootPkg string) bool {
 	terms := incompatibility.Terms()
-	return len(terms) == 1 && terms[0].Positive() && terms[0].Dependency() == rootPkg
+	return len(terms) == 0 || (len(terms) == 1 && terms[0].Positive() && terms[0].Dependency() == rootPkg)
 }
 
-func (w StandardIncompatibilityStringer) IncompatibilityString(c *Incompatibility, rootPkg string) string {
-	if w.IsRoot(c, rootPkg) {
+func (w StandardIncompatibilityStringer) IncompatibilityString(c *Incompatibility, termStringer TermStringer, rootPkg string) string {
+	if w.isRoot(c, rootPkg) {
 		return w.strings.ResolvingFailed
 	}
+
 	terms := c.Terms()
 	if len(terms) == 1 {
 		t := terms[0]
 		if t.Positive() {
-			if t.Constraint().IsAny() {
-				return fmt.Sprintf(w.strings.IsForbidden, w.termStringer.Term(t, false))
-			}
-			return fmt.Sprintf(w.strings.IsForbidden, w.termStringer.Term(t, true))
+			return fmt.Sprintf(w.strings.IsForbidden, termStringer.Term(t, true))
 		}
-		return fmt.Sprintf(w.strings.IsRequired, w.termStringer.Term(t, true))
+		return fmt.Sprintf(w.strings.IsRequired, termStringer.Term(t, false))
 	}
 	if len(terms) >= 3 {
 		slices.SortFunc(terms, func(a, b Term) int {
@@ -110,9 +167,9 @@ func (w StandardIncompatibilityStringer) IncompatibilityString(c *Incompatibilit
 		})
 		formattedTerms := make([]string, 0, len(terms))
 		for _, t := range terms {
-			formattedTerms = append(formattedTerms, w.termStringer.Term(t, true))
+			formattedTerms = append(formattedTerms, termStringer.Term(t, true))
 		}
-		return fmt.Sprintf(w.strings.AreIncompatible, strings.Join(formattedTerms, ", "))
+		return fmt.Sprintf(w.strings.AreIncompatible, strings.Join(formattedTerms, w.strings.ListSeparator))
 	}
 	var pkg, dep Term
 	if terms[0].Positive() {
@@ -145,13 +202,10 @@ func (w StandardIncompatibilityStringer) IncompatibilityString(c *Incompatibilit
 		dep = dep.Inverse()
 	}
 	if pkg.Dependency() == rootPkg {
-		return fmt.Sprintf(w.strings.Installing, w.termStringer.Term(dep, true))
+		return fmt.Sprintf(w.strings.Installing, termStringer.Term(dep, false))
 	}
 	if dep.Constraint().IsEmpty() {
-		return fmt.Sprintf(w.strings.Forbids, w.termStringer.Term(pkg, true), w.termStringer.Term(dep, false))
+		return fmt.Sprintf(w.strings.Forbids, termStringer.Term(pkg, true), termStringer.Term(dep, false))
 	}
-	if dep.Constraint().IsAny() {
-		return fmt.Sprintf(w.strings.DependsOn, w.termStringer.Term(pkg, true), w.termStringer.Term(dep, false))
-	}
-	return fmt.Sprintf(w.strings.DependsOn, w.termStringer.Term(pkg, true), w.termStringer.Term(dep, true))
+	return fmt.Sprintf(w.strings.DependsOn, termStringer.Term(pkg, true), termStringer.Term(dep, false))
 }
