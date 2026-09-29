@@ -157,6 +157,12 @@ func (s *solver) conflictResolution(fromIncompatibility *Incompatibility) (*Inco
 			priorCause.add(der.t.difference(*incompatibilityTerm).Negate())
 		}
 
+		if len(priorCause.terms) > 1 {
+			if rootTerm, ok := priorCause.terms[s.rootPkg]; ok && rootTerm.positive {
+				delete(priorCause.terms, s.rootPkg)
+			}
+		}
+
 		fromIncompatibility = priorCause
 		incompatibilityChanged = true
 	}
