@@ -69,24 +69,13 @@ func Solve(source Source, rootPkg string) (map[string]semver.Version, error) {
 
 func (s *solver) unitPropagation(inPkg string) error {
 	changed := []string{inPkg}
-	var contradictedIncompatibilities []*Incompatibility
 	for len(changed) > 0 {
 		pkg := changed[0]
 		changed = changed[1:]
 
 		for i := len(s.incompatibilities) - 1; i >= 0; i-- {
 			currentIncompatibility := s.incompatibilities[i]
-			if slices.Contains(contradictedIncompatibilities, currentIncompatibility) {
-				continue
-			}
-			hasPkg := false
-			for _, t := range currentIncompatibility.terms {
-				if t.pkg == pkg {
-					hasPkg = true
-					break
-				}
-			}
-			if !hasPkg {
+			if _, hasPkg := currentIncompatibility.terms[pkg]; !hasPkg {
 				continue
 			}
 
@@ -102,13 +91,11 @@ func (s *solver) unitPropagation(inPkg string) error {
 				}
 				s.partialSolution.add(newT.Negate(), newIncompatibility)
 				changed = []string{newT.pkg}
-				contradictedIncompatibilities = append(contradictedIncompatibilities, newIncompatibility)
 				break
 			} else if rel == setRelationAlmostSatisfied {
 				s.partialSolution.add(t.Negate(), currentIncompatibility)
 				changed = append(changed, t.pkg)
 			}
-			contradictedIncompatibilities = append(contradictedIncompatibilities, currentIncompatibility)
 		}
 	}
 	return nil
