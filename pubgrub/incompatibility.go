@@ -6,7 +6,7 @@ type Incompatibility struct {
 	dependant string
 }
 
-func (in Incompatibility) Terms() []Term {
+func (in *Incompatibility) Terms() []Term {
 	terms := make([]Term, 0, len(in.terms))
 	for _, t := range in.terms {
 		terms = append(terms, t)
@@ -14,11 +14,11 @@ func (in Incompatibility) Terms() []Term {
 	return terms
 }
 
-func (in Incompatibility) Causes() []*Incompatibility {
+func (in *Incompatibility) Causes() []*Incompatibility {
 	return in.causes
 }
 
-func (in Incompatibility) get(pkg string) *Term {
+func (in *Incompatibility) get(pkg string) *Term {
 	if t, ok := in.terms[pkg]; ok {
 		return &t
 	}
@@ -34,7 +34,7 @@ const (
 	setRelationInconclusive
 )
 
-func (in Incompatibility) relation(ps *partialSolution) (setRelation, *Term) {
+func (in *Incompatibility) relation(ps *partialSolution) (setRelation, *Term) {
 	result := setRelationSatisfied
 	var unsatisfied Term
 
@@ -69,10 +69,10 @@ func (in Incompatibility) relation(ps *partialSolution) (setRelation, *Term) {
 	return result, &unsatisfied
 }
 
-func (in Incompatibility) makePriorCause(c *Incompatibility, satisfier string) *Incompatibility {
+func (in *Incompatibility) makePriorCause(c *Incompatibility, satisfier string) *Incompatibility {
 	newIncompatibility := &Incompatibility{
 		terms:  make(map[string]Term),
-		causes: []*Incompatibility{&in, c},
+		causes: []*Incompatibility{in, c},
 	}
 	for _, t := range in.terms {
 		if t.pkg != satisfier {
@@ -87,7 +87,7 @@ func (in Incompatibility) makePriorCause(c *Incompatibility, satisfier string) *
 	return newIncompatibility
 }
 
-func (in Incompatibility) add(t Term) {
+func (in *Incompatibility) add(t Term) {
 	existingTerm := in.get(t.pkg)
 	if existingTerm != nil {
 		in.terms[t.pkg] = existingTerm.intersect(t)
