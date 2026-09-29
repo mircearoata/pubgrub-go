@@ -46,9 +46,10 @@ func NewReport(rootPkg string, cause *Incompatibility) *Report {
 		derivations: make(map[*Incompatibility]int),
 		lineNumbers: make(map[*Incompatibility]int),
 		nextLine:    1,
+		root:        cause,
 	}
 	b.countDerivations(cause)
-	b.visit(cause)
+	b.visit(cause, false)
 	report.Lines = b.lines
 	return report
 }
@@ -59,6 +60,7 @@ type reportBuilder struct {
 	lineNumbers map[*Incompatibility]int
 	lines       []Line
 	nextLine    int
+	root        *Incompatibility
 }
 
 func isDerived(c *Incompatibility) bool {
@@ -80,6 +82,16 @@ func (r *reportBuilder) countDerivations(inc *Incompatibility) {
 func (r *reportBuilder) isSingleLine(inc *Incompatibility) bool {
 	causes := inc.Causes()
 	return len(causes) == 2 && !isDerived(causes[0]) && !isDerived(causes[1])
+}
+
+func (r *reportBuilder) number(inc *Incompatibility, numbered bool) int {
+	if !numbered {
+		return 0
+	}
+	number := r.nextLine
+	r.lineNumbers[inc] = number
+	r.nextLine++
+	return number
 }
 
 func (r *reportBuilder) isCollapsible(inc *Incompatibility) bool {
@@ -143,28 +155,15 @@ func (r *reportBuilder) orderCauses(c1, c2 *Incompatibility) (*Incompatibility, 
 	return c1, c2
 }
 
-func (r *reportBuilder) tagLastLine(inc *Incompatibility) {
-	if len(r.lines) == 0 {
-		return
-	}
-
-	num := r.nextLine
-	r.nextLine++
-	r.lineNumbers[inc] = num
-	r.lines[len(r.lines)-1].Ref = num
-}
-
-func (r *reportBuilder) isRoot(incompatibility *Incompatibility) bool {
-	terms := incompatibility.Terms()
-	return len(terms) == 1 && terms[0].Positive() && terms[0].Dependency() == r.rootPkg
-}
-
-func (r *reportBuilder) visit(inc *Incompatibility) {
+func (r *reportBuilder) visit(inc *Incompatibility, conclusion bool) {
 	if !isDerived(inc) {
 		return
 	}
 	c1 := inc.Causes()[0]
 	c2 := inc.Causes()[1]
+
+	numbered := conclusion || r.derivations[inc] > 1
+	isFinal := conclusion || inc == r.root
 
 	if isDerived(c1) && isDerived(c2) {
 		l1, ok1 := r.lineNumbers[c1]
@@ -177,7 +176,8 @@ func (r *reportBuilder) visit(inc *Incompatibility) {
 			r.lines = append(r.lines, Line{
 				Kind:       LineBothReferenced,
 				Conclusion: inc,
-				Final:      r.isRoot(inc),
+				Ref:        r.number(inc, numbered),
+				Final:      isFinal,
 				Cause1:     &Cause{Incompatibility: first, Ref: line1},
 				Cause2:     &Cause{Incompatibility: second, Ref: line2},
 			})
@@ -192,11 +192,12 @@ func (r *reportBuilder) visit(inc *Incompatibility) {
 			} else {
 				withLine, withoutLine, line = c2, c1, l2
 			}
-			r.visit(withoutLine)
+			r.visit(withoutLine, false)
 			r.lines = append(r.lines, Line{
 				Kind:       LineReferencedOnly,
 				Conclusion: inc,
-				Final:      r.isRoot(inc),
+				Ref:        r.number(inc, numbered),
+				Final:      isFinal,
 				Cause1:     &Cause{Incompatibility: withLine, Ref: line},
 			})
 			return
@@ -211,29 +212,29 @@ func (r *reportBuilder) visit(inc *Incompatibility) {
 			} else {
 				first, second = c2, c1
 			}
-			r.visit(first)
-			r.visit(second)
+			r.visit(first, false)
+			r.visit(second, false)
 			r.lines = append(r.lines, Line{
 				Kind:       LineNoCauses,
 				Conclusion: inc,
-				Final:      r.isRoot(inc),
+				Ref:        r.number(inc, numbered),
+				Final:      isFinal,
 			})
 			return
 		}
 
 		first, second := r.orderCauses(c1, c2)
-		r.visit(first)
-		r.tagLastLine(first)
+		r.visit(first, true)
 		r.lines = append(r.lines, Line{
 			Kind: LineSeparator,
 		})
-		r.visit(second)
-		r.tagLastLine(second)
+		r.visit(second, false)
 		firstLine := r.lineNumbers[first]
 		r.lines = append(r.lines, Line{
 			Kind:       LineReferencedOnly,
 			Conclusion: inc,
-			Final:      r.isRoot(inc),
+			Ref:        r.number(inc, numbered),
+			Final:      isFinal,
 			Cause1:     &Cause{Incompatibility: first, Ref: firstLine},
 		})
 		return
@@ -249,7 +250,8 @@ func (r *reportBuilder) visit(inc *Incompatibility) {
 			r.lines = append(r.lines, Line{
 				Kind:       LineReferencedAndExternal,
 				Conclusion: inc,
-				Final:      r.isRoot(inc),
+				Ref:        r.number(inc, numbered),
+				Final:      isFinal,
 				Cause1:     &Cause{Incompatibility: external},
 				Cause2:     &Cause{Incompatibility: derived, Ref: derivedLine},
 			})
@@ -265,22 +267,24 @@ func (r *reportBuilder) visit(inc *Incompatibility) {
 			} else {
 				priorDerived, priorExternal = dc2, dc1
 			}
-			r.visit(priorDerived)
+			r.visit(priorDerived, false)
 			r.lines = append(r.lines, Line{
 				Kind:       LinePriorAndExternal,
 				Conclusion: inc,
-				Final:      r.isRoot(inc),
+				Ref:        r.number(inc, numbered),
+				Final:      isFinal,
 				Cause1:     &Cause{Incompatibility: priorExternal},
 				Cause2:     &Cause{Incompatibility: external},
 			})
 			return
 		}
 
-		r.visit(derived)
+		r.visit(derived, false)
 		r.lines = append(r.lines, Line{
 			Kind:       LineExternalOnly,
 			Conclusion: inc,
-			Final:      r.isRoot(inc),
+			Ref:        r.number(inc, numbered),
+			Final:      isFinal,
 			Cause1:     &Cause{Incompatibility: external},
 		})
 		return
@@ -290,7 +294,8 @@ func (r *reportBuilder) visit(inc *Incompatibility) {
 	r.lines = append(r.lines, Line{
 		Kind:       LineBothExternal,
 		Conclusion: inc,
-		Final:      r.isRoot(inc),
+		Ref:        r.number(inc, numbered),
+		Final:      isFinal,
 		Cause1:     &Cause{Incompatibility: first},
 		Cause2:     &Cause{Incompatibility: second},
 	})

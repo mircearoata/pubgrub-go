@@ -220,7 +220,7 @@ func TestSolver_BranchingErrorReporting(t *testing.T) {
 
 	result, err := Solve(source, "$$root$$")
 	testza.AssertNil(t, result)
-	expected := "   Because foo \"<1.1.0\" depends on a \"^1.0.0\" and every version of a depends on b \"^2.0.0\", foo \"<1.1.0\" depends on b \"^2.0.0\".\n1. And because foo \"<1.1.0\" depends on b \"^1.0.0\", foo \"<1.1.0\" is forbidden.\n\n   Because foo \">=1.1.0\" depends on x \"^1.0.0\" and every version of x depends on y \"^2.0.0\", foo \">=1.1.0\" depends on y \"^2.0.0\".\n2. And because foo \">=1.1.0\" depends on y \"^1.0.0\", foo \">=1.1.0\" is forbidden.\n   And because foo \"<1.1.0\" is forbidden (1), every version of foo is forbidden.\n   So, because installing foo \"^1.0.0\", version solving failed."
+	expected := "   Because foo \"<1.1.0\" depends on a \"^1.0.0\" and every version of a depends on b \"^2.0.0\", foo \"<1.1.0\" depends on b \"^2.0.0\".\n1. So, because foo \"<1.1.0\" depends on b \"^1.0.0\", foo \"<1.1.0\" is forbidden.\n\n   Because foo \">=1.1.0\" depends on x \"^1.0.0\" and every version of x depends on y \"^2.0.0\", foo \">=1.1.0\" depends on y \"^2.0.0\".\n   And because foo \">=1.1.0\" depends on y \"^1.0.0\", foo \">=1.1.0\" is forbidden.\n   And because foo \"<1.1.0\" is forbidden (1), every version of foo is forbidden.\n   So, because installing foo \"^1.0.0\", version solving failed."
 	testza.AssertEqual(t, expected, err.Error())
 }
 
