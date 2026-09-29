@@ -311,13 +311,7 @@ func (v versionRange) String() string {
 			}
 
 			// Shorthand for tilde version
-			var nextTildeVersion Version
-			switch {
-			case v.lowerBound.minor != 0:
-				nextTildeVersion = v.lowerBound.bumpMinor()
-			default:
-				nextTildeVersion = v.lowerBound.bumpMajor()
-			}
+			nextTildeVersion := v.lowerBound.bumpMinor()
 			if v.upperBound.Compare(nextTildeVersion) == 0 {
 				return "~" + v.lowerBound.String()
 			}
