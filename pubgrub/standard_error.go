@@ -117,9 +117,6 @@ func (r *StandardTextReporter) lineText(line Line, rootPkg string) string {
 		return ""
 
 	case LineBothExternal, LineBothReferenced, LineReferencedAndExternal:
-		if line.Final {
-			return fmt.Sprintf(s.SoBecause, r.twoCausesString(*line.Cause1, *line.Cause2, rootPkg), r.incompatibilityStringer.IncompatibilityString(line.Conclusion, r.termStringer, rootPkg))
-		}
 		return fmt.Sprintf(s.Because, r.twoCausesString(*line.Cause1, *line.Cause2, rootPkg), r.incompatibilityStringer.IncompatibilityString(line.Conclusion, r.termStringer, rootPkg))
 
 	case LinePriorAndExternal:

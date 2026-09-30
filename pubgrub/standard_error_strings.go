@@ -2,7 +2,6 @@ package pubgrub
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/mircearoata/pubgrub-go/pubgrub/semver"
@@ -29,25 +28,41 @@ var DefaultCauseStrings = StandardCauseStrings{
 type StandardIncompatibilityStrings struct {
 	ResolvingFailed string
 
-	DependsOn       string
-	Installing      string
-	Forbids         string
-	IsForbidden     string
-	AreIncompatible string
-	IsRequired      string
-	ListSeparator   string
+	DependsOn   string
+	Installing  string
+	Forbids     string
+	IsForbidden string
+	IsRequired  string
+
+	IncompatibleWith string
+	Either           string
+	RequiresOneOf    string
+	IfThen           string
+	OneMustBeFalse   string
+	OneMustBeTrue    string
+
+	Alternative string
+	Conjunction string
 }
 
 var DefaultIncompatibilityStrings = StandardIncompatibilityStrings{
 	ResolvingFailed: "version solving failed",
 
-	DependsOn:       "%s depends on %s",
-	Installing:      "installing %s",
-	Forbids:         "%s forbids %s",
-	IsForbidden:     "%s is forbidden",
-	AreIncompatible: "%s are incompatible",
-	IsRequired:      "%s is required",
-	ListSeparator:   ", ",
+	DependsOn:   "%s depends on %s",
+	Installing:  "installing %s",
+	Forbids:     "%s forbids %s",
+	IsForbidden: "%s is forbidden",
+	IsRequired:  "%s is required",
+
+	IncompatibleWith: "%s is incompatible with %s",
+	Either:           "either %s or %s",
+	RequiresOneOf:    "%s requires %s",
+	IfThen:           "if %s then %s",
+	OneMustBeFalse:   "one of %s must be false",
+	OneMustBeTrue:    "one of %s must be true",
+
+	Alternative: " or ",
+	Conjunction: " and ",
 }
 
 type StandardTermStrings struct {
@@ -154,58 +169,80 @@ func (w StandardIncompatibilityStringer) IncompatibilityString(c *Incompatibilit
 	}
 
 	terms := c.Terms()
-	if len(terms) == 1 {
-		t := terms[0]
+	positives := make([]Term, 0, len(terms))
+	negatives := make([]Term, 0, len(terms))
+	for _, t := range terms {
 		if t.Positive() {
-			return fmt.Sprintf(w.strings.IsForbidden, termStringer.Term(t, true))
+			positives = append(positives, t)
+		} else {
+			negatives = append(negatives, t)
 		}
-		return fmt.Sprintf(w.strings.IsRequired, termStringer.Term(t, false))
 	}
-	if len(terms) >= 3 {
-		slices.SortFunc(terms, func(a, b Term) int {
-			return strings.Compare(a.Dependency(), b.Dependency())
-		})
-		formattedTerms := make([]string, 0, len(terms))
-		for _, t := range terms {
-			formattedTerms = append(formattedTerms, termStringer.Term(t, true))
+
+	if len(terms) == 1 {
+		if len(positives) == 1 {
+			return fmt.Sprintf(w.strings.IsForbidden, termStringer.Term(positives[0], true))
 		}
-		return fmt.Sprintf(w.strings.AreIncompatible, strings.Join(formattedTerms, w.strings.ListSeparator))
+		return fmt.Sprintf(w.strings.IsRequired, termStringer.Term(negatives[0], false))
 	}
-	var pkg, dep Term
-	if terms[0].Positive() {
-		pkg = terms[0]
-		dep = terms[1]
-	} else {
-		pkg = terms[1]
-		dep = terms[0]
-	}
-	if dep.Positive() {
-		if c.dependant != "" {
+
+	if len(terms) == 2 {
+		switch {
+		case len(positives) == 1:
+			pkg, dep := positives[0], negatives[0]
+			if pkg.Dependency() == rootPkg {
+				return fmt.Sprintf(w.strings.Installing, termStringer.Term(dep, false))
+			}
+			if dep.Constraint().IsEmpty() {
+				return fmt.Sprintf(w.strings.Forbids, termStringer.Term(pkg, true), termStringer.Term(dep, false))
+			}
+			return fmt.Sprintf(w.strings.DependsOn, termStringer.Term(pkg, true), termStringer.Term(dep, false))
+
+		case len(negatives) == 0:
+			if c.dependant == "" {
+				return fmt.Sprintf(w.strings.IncompatibleWith,
+					termStringer.Term(positives[0], true),
+					termStringer.Term(positives[1], false))
+			}
 			// This is an optional dependency, which has a positive term, but with an inverse constraint
 			// We revert the constraint here to get the term in a similar format to the others
+			pkg, dep := positives[0], positives[1]
 			if pkg.Dependency() != c.dependant {
 				pkg, dep = dep, pkg
 			}
-		} else {
-			// What can we do here to determine a logical order of the terms?
-			// For now, we can just order them by the package name,
-			// so that the order is consistent between runs at least
-
-			// Maybe we can do some heuristics on the version constraint
-			// to see for which of the terms the inverse makes more sense than the original
-			// One such heuristic could be the number of ranges in the constraint
-
-			if pkg.Dependency() > dep.Dependency() {
-				pkg, dep = dep, pkg
+			dep = dep.Inverse()
+			if dep.Constraint().IsEmpty() {
+				return fmt.Sprintf(w.strings.Forbids, termStringer.Term(pkg, true), termStringer.Term(dep, false))
 			}
+			return fmt.Sprintf(w.strings.DependsOn, termStringer.Term(pkg, true), termStringer.Term(dep, false))
+
+		default:
+			return fmt.Sprintf(w.strings.Either,
+				termStringer.Term(negatives[0], false),
+				termStringer.Term(negatives[1], false))
 		}
-		dep = dep.Inverse()
 	}
-	if pkg.Dependency() == rootPkg {
-		return fmt.Sprintf(w.strings.Installing, termStringer.Term(dep, false))
+
+	switch {
+	case len(positives) == 1:
+		return fmt.Sprintf(w.strings.RequiresOneOf,
+			termStringer.Term(positives[0], true),
+			w.joinTerms(negatives, false, w.strings.Alternative, termStringer))
+	case len(negatives) >= 1 && len(positives) > 1:
+		return fmt.Sprintf(w.strings.IfThen,
+			w.joinTerms(positives, false, w.strings.Conjunction, termStringer),
+			w.joinTerms(negatives, false, w.strings.Alternative, termStringer))
+	case len(positives) > 0:
+		return fmt.Sprintf(w.strings.OneMustBeFalse, w.joinTerms(positives, false, w.strings.Alternative, termStringer))
 	}
-	if dep.Constraint().IsEmpty() {
-		return fmt.Sprintf(w.strings.Forbids, termStringer.Term(pkg, true), termStringer.Term(dep, false))
+
+	return fmt.Sprintf(w.strings.OneMustBeTrue, w.joinTerms(negatives, false, w.strings.Alternative, termStringer))
+}
+
+func (w StandardIncompatibilityStringer) joinTerms(terms []Term, allowEvery bool, separator string, termStringer TermStringer) string {
+	formatted := make([]string, 0, len(terms))
+	for _, t := range terms {
+		formatted = append(formatted, termStringer.Term(t, allowEvery))
 	}
-	return fmt.Sprintf(w.strings.DependsOn, termStringer.Term(pkg, true), termStringer.Term(dep, false))
+	return strings.Join(formatted, separator)
 }
