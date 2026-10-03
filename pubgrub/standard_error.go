@@ -138,6 +138,15 @@ func (r *StandardTextReporter) lineText(line Line, rootPkg string) string {
 }
 
 func (r *StandardTextReporter) twoCausesString(c1 Cause, c2 Cause, rootPkg string) string {
+	if res, ok := r.requiresBoth(c1, c2, rootPkg); ok {
+		return res
+	}
+	if res, ok := r.requiresThrough(c1, c2, rootPkg); ok {
+		return res
+	}
+	if res, ok := r.requiresForbidden(c1, c2, rootPkg); ok {
+		return res
+	}
 	return fmt.Sprintf(r.strings.AndCauses, r.oneCauseString(c1, rootPkg), r.oneCauseString(c2, rootPkg))
 }
 
@@ -146,4 +155,149 @@ func (r *StandardTextReporter) oneCauseString(c Cause, rootPkg string) string {
 		return fmt.Sprintf(r.strings.CauseRef, r.incompatibilityStringer.IncompatibilityString(c.Incompatibility, r.termStringer, rootPkg), c.Ref)
 	}
 	return r.incompatibilityStringer.IncompatibilityString(c.Incompatibility, r.termStringer, rootPkg)
+}
+
+func LinksTo(prior, latter *Incompatibility) bool {
+	if prior == nil || latter == nil {
+		return false
+	}
+	neg, okNeg := prior.SingleNegative()
+	if !okNeg {
+		return false
+	}
+	pos, okPos := latter.SinglePositive()
+	if !okPos {
+		return false
+	}
+	return neg.Dependency() == pos.Dependency() &&
+		neg.Constraint().Difference(pos.Constraint()).IsEmpty()
+}
+
+type RequiresBothMatch struct {
+	Subject   Term
+	Negative1 []Term
+	Negative2 []Term
+	Ref1      int
+	Ref2      int
+}
+
+func MatchRequiresBoth(c1, c2 Cause) (*RequiresBothMatch, bool) {
+	if c1.Incompatibility.Len() <= 1 || c2.Incompatibility.Len() <= 1 {
+		return nil, false
+	}
+	pos1, ok1 := c1.Incompatibility.SinglePositive()
+	pos2, ok2 := c2.Incompatibility.SinglePositive()
+	if !ok1 || !ok2 {
+		return nil, false
+	}
+	if !pos1.Equal(pos2) {
+		return nil, false
+	}
+
+	neg1 := c1.Incompatibility.Negatives()
+	neg2 := c2.Incompatibility.Negatives()
+
+	return &RequiresBothMatch{
+		Subject:   pos1,
+		Negative1: neg1,
+		Negative2: neg2,
+		Ref1:      c1.Ref,
+		Ref2:      c2.Ref,
+	}, true
+}
+
+type RequiresThroughMatch struct {
+	Prior  Cause
+	Latter Cause
+}
+
+func MatchRequiresThrough(c1, c2 Cause) (*RequiresThroughMatch, bool) {
+	if c1.Incompatibility.Len() <= 1 || c2.Incompatibility.Len() <= 1 {
+		return nil, false
+	}
+
+	if LinksTo(c1.Incompatibility, c2.Incompatibility) {
+		return &RequiresThroughMatch{Prior: c1, Latter: c2}, true
+	}
+	if LinksTo(c2.Incompatibility, c1.Incompatibility) {
+		return &RequiresThroughMatch{Prior: c2, Latter: c1}, true
+	}
+	return nil, false
+}
+
+type RequiresForbiddenMatch struct {
+	Prior     Cause
+	Forbidden Cause
+}
+
+func MatchRequiresForbidden(c1, c2 Cause) (*RequiresForbiddenMatch, bool) {
+	if c1.Incompatibility.Len() != 1 && c2.Incompatibility.Len() != 1 {
+		return nil, false
+	}
+
+	prior, latter := c1, c2
+	if c1.Incompatibility.Len() == 1 {
+		prior, latter = c2, c1
+	}
+
+	if !LinksTo(prior.Incompatibility, latter.Incompatibility) {
+		return nil, false
+	}
+
+	return &RequiresForbiddenMatch{
+		Prior:     prior,
+		Forbidden: latter,
+	}, true
+}
+
+func (r *StandardTextReporter) formatNegatives(terms []Term, ref int) string {
+	str := strings.Join(FormatTerms(terms, r.termStringer, false), r.strings.Alternative)
+	if ref > 0 {
+		str = fmt.Sprintf(r.strings.CauseRef, str, ref)
+	}
+	return str
+}
+
+func (r *StandardTextReporter) requiresBoth(c1 Cause, c2 Cause, rootPkg string) (string, bool) {
+	match, ok := MatchRequiresBoth(c1, c2)
+	if !ok {
+		return "", false
+	}
+
+	neg1Str := r.formatNegatives(match.Negative1, match.Ref1)
+	neg2Str := r.formatNegatives(match.Negative2, match.Ref2)
+
+	if match.Subject.Dependency() == rootPkg {
+		return fmt.Sprintf(r.strings.InstallingBoth, neg1Str, neg2Str), true
+	}
+	return fmt.Sprintf(r.strings.DependsOnBoth, r.termStringer.Term(match.Subject, true), neg1Str, neg2Str), true
+}
+
+func (r *StandardTextReporter) requiresThrough(c1 Cause, c2 Cause, rootPkg string) (string, bool) {
+	match, ok := MatchRequiresThrough(c1, c2)
+	if !ok {
+		return "", false
+	}
+
+	negString := r.formatNegatives(match.Latter.Incompatibility.Negatives(), match.Latter.Ref)
+
+	return fmt.Sprintf(r.strings.WhichDependsOn, r.oneCauseString(match.Prior, rootPkg), negString), true
+}
+
+func (r *StandardTextReporter) requiresForbidden(c1 Cause, c2 Cause, rootPkg string) (string, bool) {
+	match, ok := MatchRequiresForbidden(c1, c2)
+	if !ok {
+		return "", false
+	}
+
+	priorStr := r.oneCauseString(match.Prior, rootPkg)
+	return r.whichCauseString(priorStr, match.Forbidden), true
+}
+
+func (r *StandardTextReporter) whichCauseString(priorStr string, latter Cause) string {
+	res := fmt.Sprintf(r.strings.WhichIsForbidden, priorStr)
+	if latter.Ref > 0 {
+		res = fmt.Sprintf(r.strings.CauseRef, res, latter.Ref)
+	}
+	return res
 }

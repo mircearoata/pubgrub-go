@@ -150,7 +150,7 @@ func TestSolver_LinearErrorReporting(t *testing.T) {
 
 	result, err := Solve(source, "$$root$$")
 	testza.AssertNil(t, result)
-	expected := "Because every version of foo depends on bar \"^2.0.0\" and every version of bar depends on baz \"^3.0.0\", every version of foo depends on baz \"^3.0.0\".\nSo, because installing baz \"^1.0.0\" and installing foo \"^1.0.0\", version solving failed."
+	expected := "Because every version of foo depends on bar \"^2.0.0\" which depends on baz \"^3.0.0\", every version of foo depends on baz \"^3.0.0\".\nSo, because installing both baz \"^1.0.0\" and foo \"^1.0.0\", version solving failed."
 	testza.AssertEqual(t, expected, err.Error())
 }
 
@@ -220,7 +220,7 @@ func TestSolver_BranchingErrorReporting(t *testing.T) {
 
 	result, err := Solve(source, "$$root$$")
 	testza.AssertNil(t, result)
-	expected := "   Because foo \"<1.1.0\" depends on a \"^1.0.0\" and every version of a depends on b \"^2.0.0\", foo \"<1.1.0\" depends on b \"^2.0.0\".\n1. So, because foo \"<1.1.0\" depends on b \"^1.0.0\", foo \"<1.1.0\" is forbidden.\n\n   Because foo \">=1.1.0\" depends on x \"^1.0.0\" and every version of x depends on y \"^2.0.0\", foo \">=1.1.0\" depends on y \"^2.0.0\".\n   And because foo \">=1.1.0\" depends on y \"^1.0.0\", foo \">=1.1.0\" is forbidden.\n   And because foo \"<1.1.0\" is forbidden (1), every version of foo is forbidden.\n   So, because installing foo \"^1.0.0\", version solving failed."
+	expected := "   Because foo \"<1.1.0\" depends on a \"^1.0.0\" which depends on b \"^2.0.0\", foo \"<1.1.0\" depends on b \"^2.0.0\".\n1. So, because foo \"<1.1.0\" depends on b \"^1.0.0\", foo \"<1.1.0\" is forbidden.\n\n   Because foo \">=1.1.0\" depends on x \"^1.0.0\" which depends on y \"^2.0.0\", foo \">=1.1.0\" depends on y \"^2.0.0\".\n   And because foo \">=1.1.0\" depends on y \"^1.0.0\", foo \">=1.1.0\" is forbidden.\n   And because foo \"<1.1.0\" is forbidden (1), every version of foo is forbidden.\n   So, because installing foo \"^1.0.0\", version solving failed."
 	testza.AssertEqual(t, expected, err.Error())
 }
 
@@ -380,7 +380,140 @@ func TestSolver_OptionalDependencies_Error(t *testing.T) {
 
 	result, err := Solve(source, "$$root$$")
 	testza.AssertNil(t, result)
-	expected := "Because every version of bar depends on baz \"^2.0.0\" and every version of foo depends on baz \"^1.0.0\", every version of bar is incompatible with foo.\nSo, because installing bar \"^1.0.0\" and installing foo \"^1.0.0\", version solving failed."
+	expected := "Because every version of bar depends on baz \"^2.0.0\" and every version of foo depends on baz \"^1.0.0\", every version of bar is incompatible with foo.\nSo, because installing both bar \"^1.0.0\" and foo \"^1.0.0\", version solving failed."
+	testza.AssertEqual(t, expected, err.Error())
+}
+
+func TestSolver_DependsOnBoth(t *testing.T) {
+	t.Parallel()
+
+	source := mockSource{
+		packages: map[string][]PackageVersion{
+			"$$root$$": {
+				{
+					Version: newVersion("1.0.0"),
+					Dependencies: map[string]semver.Constraint{
+						"parent": newConstraint("^1.0.0"),
+					},
+				},
+			},
+			"parent": {
+				{
+					Version: newVersion("1.0.0"),
+					Dependencies: map[string]semver.Constraint{
+						"my_lib": newConstraint("^1.0.0"),
+					},
+				},
+			},
+			"my_lib": {
+				{
+					Version: newVersion("1.0.0"),
+					Dependencies: map[string]semver.Constraint{
+						"bar": newConstraint("^1.0.0"),
+						"foo": newConstraint("^1.0.0"),
+					},
+				},
+			},
+			"bar": {
+				{
+					Version: newVersion("1.0.0"),
+					Dependencies: map[string]semver.Constraint{
+						"shared": newConstraint("^1.0.0"),
+					},
+				},
+			},
+			"foo": {
+				{
+					Version: newVersion("1.0.0"),
+					Dependencies: map[string]semver.Constraint{
+						"shared": newConstraint("^2.0.0"),
+					},
+				},
+			},
+			"shared": {
+				{Version: newVersion("1.0.0")},
+				{Version: newVersion("2.0.0")},
+			},
+		},
+	}
+
+	result, err := Solve(source, "$$root$$")
+	testza.AssertNil(t, result)
+	expected := "Because every version of foo depends on shared \"^2.0.0\" and every version of bar depends on shared \"^1.0.0\", every version of bar is incompatible with foo.\nAnd because every version of my_lib depends on both bar \"^1.0.0\" and foo \"^1.0.0\", every version of my_lib is forbidden.\nSo, because installing parent \"^1.0.0\" which depends on my_lib \"^1.0.0\", version solving failed."
+	testza.AssertEqual(t, expected, err.Error())
+}
+
+func TestSolver_WhichDependsOn(t *testing.T) {
+	t.Parallel()
+
+	source := mockSource{
+		packages: map[string][]PackageVersion{
+			"$$root$$": {
+				{
+					Version: newVersion("1.0.0"),
+					Dependencies: map[string]semver.Constraint{
+						"foo": newConstraint("^1.0.0"),
+					},
+				},
+			},
+			"foo": {
+				{
+					Version: newVersion("1.0.0"),
+					Dependencies: map[string]semver.Constraint{
+						"bar": newConstraint("^1.0.0"),
+						"baz": newConstraint("^1.0.0"),
+					},
+				},
+			},
+			"bar": {
+				{
+					Version: newVersion("1.0.0"),
+					Dependencies: map[string]semver.Constraint{
+						"baz": newConstraint("^2.0.0"),
+					},
+				},
+			},
+			"baz": {
+				{Version: newVersion("1.0.0")},
+				{Version: newVersion("2.0.0")},
+			},
+		},
+	}
+
+	result, err := Solve(source, "$$root$$")
+	testza.AssertNil(t, result)
+	expected := "Because every version of foo depends on bar \"^1.0.0\" which depends on baz \"^2.0.0\", every version of foo depends on baz \"^2.0.0\".\nSo, because installing foo \"^1.0.0\" which depends on baz \"^1.0.0\", version solving failed."
+	testza.AssertEqual(t, expected, err.Error())
+}
+
+func TestSolver_WhichIsForbidden(t *testing.T) {
+	t.Parallel()
+
+	source := mockSource{
+		packages: map[string][]PackageVersion{
+			"$$root$$": {
+				{
+					Version: newVersion("1.0.0"),
+					Dependencies: map[string]semver.Constraint{
+						"foo": newConstraint("^1.0.0"),
+					},
+				},
+			},
+			"foo": {
+				{
+					Version: newVersion("1.0.0"),
+					Dependencies: map[string]semver.Constraint{
+						"bar": newConstraint("^1.0.0"),
+					},
+				},
+			},
+			"bar": {},
+		},
+	}
+
+	result, err := Solve(source, "$$root$$")
+	testza.AssertNil(t, result)
+	expected := "Because every version of foo depends on bar \"^1.0.0\" which is forbidden, every version of foo is forbidden.\nSo, because installing foo \"^1.0.0\", version solving failed."
 	testza.AssertEqual(t, expected, err.Error())
 }
 
@@ -448,7 +581,7 @@ func TestSolver_Formatters(t *testing.T) {
 				WithConstraintFormatter(customConstraintFormatter{}),
 		)
 	rendered := textReporter.Render(solverErr.Report())
-	testza.AssertEqual(t, "Because every version of bar depends on baz \"v^2.0.0\" and every version of foo2 depends on baz \"v^1.0.0\", every version of bar is incompatible with foo2.\nSo, because installing bar \"v^1.0.0\" and installing foo2 \"v^1.0.0\", version solving failed.", rendered)
+	testza.AssertEqual(t, "Because every version of bar depends on baz \"v^2.0.0\" and every version of foo2 depends on baz \"v^1.0.0\", every version of bar is incompatible with foo2.\nSo, because installing both bar \"v^1.0.0\" and foo2 \"v^1.0.0\", version solving failed.", rendered)
 }
 
 func TestSolver_CustomStrings(t *testing.T) {
@@ -488,5 +621,5 @@ func TestSolver_CustomStrings(t *testing.T) {
 		)
 
 	rendered := reporter.Render(solverErr.Report())
-	testza.AssertEqual(t, "(Because) (install) foo \"^1.0.0\" and foo \"^1.0.0\" is forbidden, (failed).", rendered)
+	testza.AssertEqual(t, "(Because) (install) foo \"^1.0.0\" which is forbidden, (failed).", rendered)
 }

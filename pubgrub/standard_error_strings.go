@@ -12,8 +12,16 @@ type StandardCauseStrings struct {
 	AndBecause string
 	SoBecause  string
 	Thus       string
-	AndCauses  string
-	CauseRef   string
+
+	AndCauses string
+	CauseRef  string
+
+	DependsOnBoth  string
+	InstallingBoth string
+
+	WhichDependsOn   string
+	WhichIsForbidden string
+	Alternative      string
 }
 
 var DefaultCauseStrings = StandardCauseStrings{
@@ -21,8 +29,16 @@ var DefaultCauseStrings = StandardCauseStrings{
 	AndBecause: "And because %s, %s.",
 	SoBecause:  "So, because %s, %s.",
 	Thus:       "Thus, %s.",
-	AndCauses:  "%s and %s",
-	CauseRef:   "%s (%d)",
+
+	AndCauses: "%s and %s",
+	CauseRef:  "%s (%d)",
+
+	DependsOnBoth:  "%s depends on both %s and %s",
+	InstallingBoth: "installing both %s and %s",
+
+	WhichDependsOn:   "%s which depends on %s",
+	WhichIsForbidden: "%s which is forbidden",
+	Alternative:      " or ",
 }
 
 type StandardIncompatibilityStrings struct {
@@ -239,10 +255,14 @@ func (w StandardIncompatibilityStringer) IncompatibilityString(c *Incompatibilit
 	return fmt.Sprintf(w.strings.OneMustBeTrue, w.joinTerms(negatives, false, w.strings.Alternative, termStringer))
 }
 
-func (w StandardIncompatibilityStringer) joinTerms(terms []Term, allowEvery bool, separator string, termStringer TermStringer) string {
-	formatted := make([]string, 0, len(terms))
-	for _, t := range terms {
-		formatted = append(formatted, termStringer.Term(t, allowEvery))
+func FormatTerms(terms []Term, ts TermStringer, allowEvery bool) []string {
+	res := make([]string, len(terms))
+	for i, t := range terms {
+		res[i] = ts.Term(t, allowEvery)
 	}
-	return strings.Join(formatted, separator)
+	return res
+}
+
+func (w StandardIncompatibilityStringer) joinTerms(terms []Term, allowEvery bool, separator string, termStringer TermStringer) string {
+	return strings.Join(FormatTerms(terms, termStringer, allowEvery), separator)
 }

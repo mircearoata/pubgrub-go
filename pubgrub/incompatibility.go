@@ -111,3 +111,66 @@ func (in *Incompatibility) add(t Term) {
 		in.terms[t.pkg] = t
 	}
 }
+
+func (in *Incompatibility) Len() int {
+	return len(in.terms)
+}
+
+func (in *Incompatibility) Positives() []Term {
+	positives := make([]Term, 0, len(in.terms))
+	for _, t := range in.terms {
+		if t.Positive() {
+			positives = append(positives, t)
+		}
+	}
+	slices.SortFunc(positives, func(a, b Term) int {
+		return strings.Compare(a.pkg, b.pkg)
+	})
+	return positives
+}
+
+func (in *Incompatibility) Negatives() []Term {
+	negatives := make([]Term, 0, len(in.terms))
+	for _, t := range in.terms {
+		if !t.Positive() {
+			negatives = append(negatives, t)
+		}
+	}
+	slices.SortFunc(negatives, func(a, b Term) int {
+		return strings.Compare(a.pkg, b.pkg)
+	})
+	return negatives
+}
+
+func (in *Incompatibility) SinglePositive() (Term, bool) {
+	var found Term
+	var ok bool
+	for _, t := range in.terms {
+		if t.Positive() {
+			if ok {
+				return Term{}, false
+			}
+			found = t
+			ok = true
+		}
+	}
+	return found, ok
+}
+
+func (in *Incompatibility) SingleNegative() (Term, bool) {
+	if in == nil {
+		return Term{}, false
+	}
+	var found Term
+	var ok bool
+	for _, t := range in.terms {
+		if !t.Positive() {
+			if ok {
+				return Term{}, false
+			}
+			found = t
+			ok = true
+		}
+	}
+	return found, ok
+}
