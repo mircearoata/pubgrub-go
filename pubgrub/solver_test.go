@@ -921,3 +921,90 @@ func TestSolver_ForbiddenVersion(t *testing.T) {
 		testza.AssertEqual(t, expected, err.Error())
 	})
 }
+
+func TestSolver_EnvironmentConstraints(t *testing.T) {
+	t.Parallel()
+
+	t.Run("unsatisfied", func(t *testing.T) {
+		t.Parallel()
+
+		source := mockSource{
+			packages: map[string][]PackageVersion{
+				"$$root$$": {
+					{
+						Version: newVersion("1.0.0"),
+						Dependencies: map[string]semver.Constraint{
+							"foo": newConstraint("^1.0.0"),
+						},
+					},
+				},
+				"foo": {
+					{
+						Version: newVersion("1.0.0"),
+						Dependencies: map[string]semver.Constraint{
+							"go": newConstraint(">=2.0.0"),
+						},
+					},
+				},
+				"go": {
+					{
+						Version: newVersion("2.0.0"),
+					},
+				},
+			},
+		}
+
+		result, err := Solve(
+			source,
+			"$$root$$",
+			WithEnvironmentPackages(map[string]semver.Constraint{
+				"go": newConstraint("1.0.0"),
+			}),
+		)
+		testza.AssertNil(t, result)
+		expected := "Because every version of foo depends on go \">=2.0.0\" and go \"1.0.0\" is installed, every version of foo is forbidden.\nSo, because installing foo \"^1.0.0\", version solving failed."
+		testza.AssertEqual(t, expected, err.Error())
+	})
+
+	t.Run("satisfied", func(t *testing.T) {
+		t.Parallel()
+
+		source := mockSource{
+			packages: map[string][]PackageVersion{
+				"$$root$$": {
+					{
+						Version: newVersion("1.0.0"),
+						Dependencies: map[string]semver.Constraint{
+							"foo": newConstraint("^1.0.0"),
+						},
+					},
+				},
+				"foo": {
+					{
+						Version: newVersion("1.0.0"),
+						Dependencies: map[string]semver.Constraint{
+							"go": newConstraint("1.0.0"),
+						},
+					},
+				},
+				"go": {
+					{
+						Version: newVersion("1.0.0"),
+					},
+				},
+			},
+		}
+
+		result, err := Solve(
+			source,
+			"$$root$$",
+			WithEnvironmentPackages(map[string]semver.Constraint{
+				"go": newConstraint("1.0.0"),
+			}),
+		)
+		testza.AssertNoError(t, err)
+		testza.AssertEqual(t, map[string]semver.Version{
+			"foo": newVersion("1.0.0"),
+		}, result)
+	})
+}

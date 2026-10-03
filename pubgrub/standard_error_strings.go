@@ -69,6 +69,7 @@ type StandardIncompatibilityStrings struct {
 	NoVersions        string
 	NotFound          string
 	IsForbiddenReason string
+	IsInstalled       string
 
 	IncompatibleWith string
 	Either           string
@@ -95,6 +96,7 @@ var DefaultIncompatibilityStrings = StandardIncompatibilityStrings{
 	NoVersions:        "%s matches no versions",
 	NotFound:          "%s could not be found",
 	IsForbiddenReason: "%s %s",
+	IsInstalled:       "%s is installed",
 
 	IncompatibleWith: "%s is incompatible with %s",
 	Either:           "either %s or %s",
@@ -119,6 +121,10 @@ var DefaultTermStrings = StandardTermStrings{
 
 type IncompatibilityStringer interface {
 	IncompatibilityString(incompatibility *Incompatibility, ts TermStringer, rootPkg string) string
+}
+
+type TwoCausesConfig interface {
+	AllowMerging(c1 ReportCause, c2 ReportCause, rootPkg string) bool
 }
 
 type TermStringer interface {
@@ -223,6 +229,8 @@ func (w StandardIncompatibilityStringer) IncompatibilityString(c *Incompatibilit
 		return fmt.Sprintf(w.strings.NotFound, termStringer.Term(typedCause.Pkg, semver.AnyConstraint, false))
 	case PackageVersionForbiddenCause:
 		return fmt.Sprintf(w.strings.IsForbiddenReason, termStringer.Term(typedCause.Pkg, typedCause.PkgRange, true), typedCause.Reason)
+	case EnvironmentPackageCause:
+		return fmt.Sprintf(w.strings.IsInstalled, termStringer.Term(typedCause.Pkg, typedCause.Constraint, false))
 	}
 
 	terms := c.Terms()

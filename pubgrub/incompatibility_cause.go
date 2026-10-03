@@ -47,3 +47,10 @@ type PackageVersionForbiddenCause struct {
 }
 
 func (PackageVersionForbiddenCause) cause() {}
+
+type EnvironmentPackageCause struct {
+	Pkg        string
+	Constraint semver.Constraint
+}
+
+func (EnvironmentPackageCause) cause() {}

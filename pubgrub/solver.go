@@ -17,7 +17,24 @@ type solver struct {
 	source Source
 }
 
-func Solve(source Source, rootPkg string) (map[string]semver.Version, error) {
+type SolveOption func(*solverConfig)
+
+type solverConfig struct {
+	environmentPackages map[string]semver.Constraint
+}
+
+func WithEnvironmentPackages(packages map[string]semver.Constraint) func(*solverConfig) {
+	return func(o *solverConfig) {
+		o.environmentPackages = packages
+	}
+}
+
+func Solve(source Source, rootPkg string, opts ...SolveOption) (map[string]semver.Version, error) {
+	cfg := solverConfig{}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	s := solver{
 		source:  source,
 		rootPkg: rootPkg,
@@ -35,7 +52,23 @@ func Solve(source Source, rootPkg string) (map[string]semver.Version, error) {
 		},
 	}
 
-	next := rootPkg
+	for pkg, constraint := range cfg.environmentPackages {
+		s.addIncompatibility(&Incompatibility{
+			terms: map[string]Term{
+				pkg: {
+					pkg:               pkg,
+					versionConstraint: constraint,
+					positive:          false, // Incompatibility will be satisfied if the package is installed with the given constraint
+				},
+			},
+			cause: EnvironmentPackageCause{
+				Pkg:        pkg,
+				Constraint: constraint,
+			},
+		})
+	}
+
+	next := s.rootPkg
 
 	for {
 		err := s.unitPropagation(next)
@@ -64,7 +97,10 @@ func Solve(source Source, rootPkg string) (map[string]semver.Version, error) {
 	}
 
 	result := s.partialSolution.decisionsMap()
-	delete(result, rootPkg)
+	delete(result, s.rootPkg)
+	for pkg := range cfg.environmentPackages {
+		delete(result, pkg)
+	}
 	return result, nil
 }
 
