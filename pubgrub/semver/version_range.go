@@ -71,6 +71,14 @@ func makeVersionRange(v string) (versionRange, error) {
 		result = result.withLowerBound(ver, true)
 		result = result.withUpperBound(ver, true)
 	}
+
+	// Handle >=0.0.0 as *
+	if result.lowerBound != nil && result.lowerInclusive &&
+		result.lowerBound.major == 0 && result.lowerBound.minor == 0 && result.lowerBound.patch == 0 &&
+		!result.lowerBound.IsPrerelease() && result.upperBound == nil {
+		result.lowerBound = nil
+		result.lowerInclusive = false
+	}
 	return result, nil
 }
 

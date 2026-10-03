@@ -21,6 +21,7 @@ func TestMakeVersionRange(t *testing.T) {
 		{">1.2.3", versionRange{lowerBound: &Version{1, 2, 3, nil, nil, "1.2.3"}, raw: ">1.2.3"}},
 		{"<=1.2.3", versionRange{upperBound: &Version{1, 2, 3, nil, nil, "1.2.3"}, upperInclusive: true, raw: "<=1.2.3"}},
 		{"<1.2.3", versionRange{upperBound: &Version{1, 2, 3, nil, nil, "1.2.3"}, raw: "<1.2.3"}},
+		{">=0.0.0", versionRange{raw: ">=0.0.0"}},
 
 		//// Double end simple
 		{">=1.2.3 <1.2.4", versionRange{lowerBound: &Version{1, 2, 3, nil, nil, "1.2.3"}, upperBound: &Version{1, 2, 4, nil, nil, "1.2.4"}, lowerInclusive: true, raw: ">=1.2.3 <1.2.4"}},
