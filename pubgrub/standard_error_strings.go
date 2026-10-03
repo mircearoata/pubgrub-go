@@ -17,11 +17,16 @@ type StandardCauseStrings struct {
 	CauseRef  string
 
 	DependsOnBoth  string
+	RequiresBoth   string
 	InstallingBoth string
 
-	WhichDependsOn   string
+	WhichDependsOn string
+	WhichRequires  string
+
 	WhichIsForbidden string
-	Alternative      string
+	WhichNoVersions  string
+
+	Alternative string
 }
 
 var DefaultCauseStrings = StandardCauseStrings{
@@ -34,21 +39,30 @@ var DefaultCauseStrings = StandardCauseStrings{
 	CauseRef:  "%s (%d)",
 
 	DependsOnBoth:  "%s depends on both %s and %s",
+	RequiresBoth:   "%s requires both %s and %s",
 	InstallingBoth: "installing both %s and %s",
 
-	WhichDependsOn:   "%s which depends on %s",
+	WhichDependsOn: "%s which depends on %s",
+	WhichRequires:  "%s which requires %s",
+
 	WhichIsForbidden: "%s which is forbidden",
-	Alternative:      " or ",
+	WhichNoVersions:  "%s which has no versions",
+
+	Alternative: " or ",
 }
 
 type StandardIncompatibilityStrings struct {
 	ResolvingFailed string
 
-	DependsOn   string
-	Installing  string
-	Forbids     string
-	IsForbidden string
-	IsRequired  string
+	DependsOn         string
+	OptionalDependsOn string
+	Requires          string
+	Installing        string
+	Forbids           string
+	IsForbidden       string
+	IsRequired        string
+
+	NoVersions string
 
 	IncompatibleWith string
 	Either           string
@@ -64,11 +78,15 @@ type StandardIncompatibilityStrings struct {
 var DefaultIncompatibilityStrings = StandardIncompatibilityStrings{
 	ResolvingFailed: "version solving failed",
 
-	DependsOn:   "%s depends on %s",
-	Installing:  "installing %s",
-	Forbids:     "%s forbids %s",
-	IsForbidden: "%s is forbidden",
-	IsRequired:  "%s is required",
+	DependsOn:         "%s depends on %s",
+	OptionalDependsOn: "%s optionally depends on %s",
+	Requires:          "%s requires %s",
+	Installing:        "installing %s",
+	Forbids:           "%s forbids %s",
+	IsForbidden:       "%s is forbidden",
+	IsRequired:        "%s is required",
+
+	NoVersions: "%s has no versions",
 
 	IncompatibleWith: "%s is incompatible with %s",
 	Either:           "either %s or %s",
@@ -96,7 +114,7 @@ type IncompatibilityStringer interface {
 }
 
 type TermStringer interface {
-	Term(t Term, allowEvery bool) string
+	Term(pkg string, constraint semver.Constraint, allowEvery bool) string
 }
 
 type PackageFormatter interface {
@@ -146,18 +164,18 @@ func (w StandardTermStringer) FormatConstraint(pkg string, c semver.Constraint) 
 	return c.String()
 }
 
-func (w StandardTermStringer) Term(t Term, allowEvery bool) string {
-	pkgName := w.FormatPackage(t.Dependency())
-	if t.Constraint().IsAny() {
+func (w StandardTermStringer) Term(pkg string, constraint semver.Constraint, allowEvery bool) string {
+	pkgName := w.FormatPackage(pkg)
+	if constraint.IsAny() {
 		if allowEvery {
 			return fmt.Sprintf(w.strings.EveryVersionOf, pkgName)
 		}
 		return pkgName
 	}
-	if t.Constraint().IsEmpty() {
+	if constraint.IsEmpty() {
 		return pkgName
 	}
-	constraintStr := w.FormatConstraint(t.Dependency(), t.Constraint())
+	constraintStr := w.FormatConstraint(pkg, constraint)
 	return fmt.Sprintf(w.strings.Default, pkgName, constraintStr)
 }
 
@@ -174,14 +192,25 @@ func (w StandardIncompatibilityStringer) WithStrings(strings StandardIncompatibi
 	return w
 }
 
-func (w StandardIncompatibilityStringer) isRoot(incompatibility *Incompatibility, rootPkg string) bool {
-	terms := incompatibility.Terms()
-	return len(terms) == 0 || (len(terms) == 1 && terms[0].Positive() && terms[0].Dependency() == rootPkg)
-}
-
 func (w StandardIncompatibilityStringer) IncompatibilityString(c *Incompatibility, termStringer TermStringer, rootPkg string) string {
-	if w.isRoot(c, rootPkg) {
-		return w.strings.ResolvingFailed
+	cause := c.Cause()
+	switch typedCause := cause.(type) {
+	case RootCause:
+		// This should never be reached, as packages should not depend on the root package, but just in case
+		return fmt.Sprintf(w.strings.IsRequired, termStringer.Term(rootPkg, semver.AnyConstraint, false))
+	case DependencyCause:
+		if typedCause.Pkg == rootPkg {
+			return fmt.Sprintf(w.strings.Installing, termStringer.Term(typedCause.Target, typedCause.Constraint, false))
+		}
+		if typedCause.Constraint.IsEmpty() {
+			return fmt.Sprintf(w.strings.Forbids, termStringer.Term(typedCause.Pkg, typedCause.PkgRange, true), termStringer.Term(typedCause.Target, typedCause.Constraint, false))
+		}
+		if typedCause.Optional {
+			return fmt.Sprintf(w.strings.OptionalDependsOn, termStringer.Term(typedCause.Pkg, typedCause.PkgRange, true), termStringer.Term(typedCause.Target, typedCause.Constraint, false))
+		}
+		return fmt.Sprintf(w.strings.DependsOn, termStringer.Term(typedCause.Pkg, typedCause.PkgRange, true), termStringer.Term(typedCause.Target, typedCause.Constraint, false))
+	case NoVersionsCause:
+		return fmt.Sprintf(w.strings.NoVersions, termStringer.Term(typedCause.Pkg, typedCause.Constraint, false))
 	}
 
 	terms := c.Terms()
@@ -195,54 +224,42 @@ func (w StandardIncompatibilityStringer) IncompatibilityString(c *Incompatibilit
 		}
 	}
 
+	if len(terms) == 0 || (len(terms) == 1 && len(positives) == 1 && positives[0].pkg == rootPkg) {
+		return w.strings.ResolvingFailed
+	}
+
 	if len(terms) == 1 {
 		if len(positives) == 1 {
-			return fmt.Sprintf(w.strings.IsForbidden, termStringer.Term(positives[0], true))
+			return fmt.Sprintf(w.strings.IsForbidden, FormatTerm(positives[0], termStringer, true))
 		}
-		return fmt.Sprintf(w.strings.IsRequired, termStringer.Term(negatives[0], false))
+		return fmt.Sprintf(w.strings.IsRequired, FormatTerm(negatives[0], termStringer, false))
 	}
 
 	if len(terms) == 2 {
 		switch {
 		case len(positives) == 1:
 			pkg, dep := positives[0], negatives[0]
-			if pkg.Dependency() == rootPkg {
-				return fmt.Sprintf(w.strings.Installing, termStringer.Term(dep, false))
-			}
 			if dep.Constraint().IsEmpty() {
-				return fmt.Sprintf(w.strings.Forbids, termStringer.Term(pkg, true), termStringer.Term(dep, false))
+				return fmt.Sprintf(w.strings.Forbids, FormatTerm(pkg, termStringer, true), FormatTerm(dep, termStringer, false))
 			}
-			return fmt.Sprintf(w.strings.DependsOn, termStringer.Term(pkg, true), termStringer.Term(dep, false))
+			return fmt.Sprintf(w.strings.Requires, FormatTerm(pkg, termStringer, true), FormatTerm(dep, termStringer, false))
 
 		case len(negatives) == 0:
-			if c.dependant == "" {
-				return fmt.Sprintf(w.strings.IncompatibleWith,
-					termStringer.Term(positives[0], true),
-					termStringer.Term(positives[1], false))
-			}
-			// This is an optional dependency, which has a positive term, but with an inverse constraint
-			// We revert the constraint here to get the term in a similar format to the others
-			pkg, dep := positives[0], positives[1]
-			if pkg.Dependency() != c.dependant {
-				pkg, dep = dep, pkg
-			}
-			dep = dep.Inverse()
-			if dep.Constraint().IsEmpty() {
-				return fmt.Sprintf(w.strings.Forbids, termStringer.Term(pkg, true), termStringer.Term(dep, false))
-			}
-			return fmt.Sprintf(w.strings.DependsOn, termStringer.Term(pkg, true), termStringer.Term(dep, false))
+			return fmt.Sprintf(w.strings.IncompatibleWith,
+				FormatTerm(positives[0], termStringer, true),
+				FormatTerm(positives[1], termStringer, false))
 
 		default:
 			return fmt.Sprintf(w.strings.Either,
-				termStringer.Term(negatives[0], false),
-				termStringer.Term(negatives[1], false))
+				FormatTerm(negatives[0], termStringer, false),
+				FormatTerm(negatives[1], termStringer, false))
 		}
 	}
 
 	switch {
 	case len(positives) == 1:
 		return fmt.Sprintf(w.strings.RequiresOneOf,
-			termStringer.Term(positives[0], true),
+			FormatTerm(positives[0], termStringer, true),
 			w.joinTerms(negatives, false, w.strings.Alternative, termStringer))
 	case len(negatives) >= 1 && len(positives) > 1:
 		return fmt.Sprintf(w.strings.IfThen,
@@ -255,10 +272,14 @@ func (w StandardIncompatibilityStringer) IncompatibilityString(c *Incompatibilit
 	return fmt.Sprintf(w.strings.OneMustBeTrue, w.joinTerms(negatives, false, w.strings.Alternative, termStringer))
 }
 
+func FormatTerm(term Term, ts TermStringer, allowEvery bool) string {
+	return ts.Term(term.pkg, term.versionConstraint, allowEvery)
+}
+
 func FormatTerms(terms []Term, ts TermStringer, allowEvery bool) []string {
 	res := make([]string, len(terms))
 	for i, t := range terms {
-		res[i] = ts.Term(t, allowEvery)
+		res[i] = FormatTerm(t, ts, allowEvery)
 	}
 	return res
 }

@@ -30,6 +30,7 @@ func Solve(source Source, rootPkg string) (map[string]semver.Version, error) {
 						positive:          false,
 					},
 				},
+				cause: RootCause{},
 			},
 		},
 	}
@@ -201,6 +202,7 @@ func (s *solver) decision() (string, bool, error) {
 	if len(versions) == 0 || len(compatibleVersions) == 0 {
 		s.addIncompatibility(&Incompatibility{
 			terms: map[string]Term{pkg: *t},
+			cause: NoVersionsCause{Pkg: pkg, Constraint: t.Constraint()},
 		})
 		return pkg, false, nil
 	}
@@ -238,11 +240,12 @@ func (s *solver) decision() (string, bool, error) {
 		slices.SortFunc(versionsWithThisDependency, func(a, b semver.Version) int {
 			return a.Compare(b)
 		})
+		pkgRange := semver.NewConstraintFromVersionSubset(versionsWithThisDependency, availableVersions)
 		s.addIncompatibility(&Incompatibility{
 			terms: map[string]Term{
 				pkg: {
 					pkg:               pkg,
-					versionConstraint: semver.NewConstraintFromVersionSubset(versionsWithThisDependency, availableVersions),
+					versionConstraint: pkgRange,
 					positive:          true,
 				},
 				dep: {
@@ -250,7 +253,7 @@ func (s *solver) decision() (string, bool, error) {
 					versionConstraint: constraint,
 				},
 			},
-			dependant: pkg,
+			cause: DependencyCause{Pkg: pkg, PkgRange: pkgRange, Target: dep, Constraint: constraint, Optional: false},
 		})
 	}
 
@@ -271,11 +274,12 @@ func (s *solver) decision() (string, bool, error) {
 		slices.SortFunc(versionsWithThisDependency, func(a, b semver.Version) int {
 			return a.Compare(b)
 		})
+		pkgRange := semver.NewConstraintFromVersionSubset(versionsWithThisDependency, availableVersions)
 		s.addIncompatibility(&Incompatibility{
 			terms: map[string]Term{
 				pkg: {
 					pkg:               pkg,
-					versionConstraint: semver.NewConstraintFromVersionSubset(versionsWithThisDependency, availableVersions),
+					versionConstraint: pkgRange,
 					positive:          true,
 				},
 				dep: {
@@ -288,7 +292,7 @@ func (s *solver) decision() (string, bool, error) {
 					positive:          true,
 				},
 			},
-			dependant: pkg,
+			cause: DependencyCause{Pkg: pkg, PkgRange: pkgRange, Target: dep, Constraint: constraint, Optional: true},
 		})
 	}
 

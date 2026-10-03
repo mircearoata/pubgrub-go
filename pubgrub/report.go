@@ -17,7 +17,7 @@ const (
 	LineNoCauses
 )
 
-type Cause struct {
+type ReportCause struct {
 	Incompatibility *Incompatibility
 	Ref             int
 }
@@ -27,8 +27,8 @@ type Line struct {
 	Conclusion *Incompatibility
 	Ref        int
 	Final      bool
-	Cause1     *Cause
-	Cause2     *Cause
+	Cause1     *ReportCause
+	Cause2     *ReportCause
 }
 
 type Report struct {
@@ -63,25 +63,24 @@ type reportBuilder struct {
 	root        *Incompatibility
 }
 
-func isDerived(c *Incompatibility) bool {
-	return len(c.Causes()) == 2
-}
-
 func (r *reportBuilder) countDerivations(inc *Incompatibility) {
 	if inc == nil {
 		return
 	}
 	r.derivations[inc]++
-	if r.derivations[inc] == 1 && isDerived(inc) {
-		for _, cause := range inc.Causes() {
-			r.countDerivations(cause)
+	if r.derivations[inc] == 1 {
+		cause := inc.Cause()
+		if conflictCause, ok := cause.(ConflictCause); ok {
+			r.countDerivations(conflictCause.A)
+			r.countDerivations(conflictCause.B)
 		}
 	}
 }
 
-func (r *reportBuilder) isSingleLine(inc *Incompatibility) bool {
-	causes := inc.Causes()
-	return len(causes) == 2 && !isDerived(causes[0]) && !isDerived(causes[1])
+func (r *reportBuilder) isSingleLine(cause ConflictCause) bool {
+	_, aIsConflict := cause.A.Cause().(ConflictCause)
+	_, bIsConflict := cause.B.Cause().(ConflictCause)
+	return !aIsConflict && !bIsConflict
 }
 
 func (r *reportBuilder) number(inc *Incompatibility, numbered bool) int {
@@ -92,41 +91,6 @@ func (r *reportBuilder) number(inc *Incompatibility, numbered bool) int {
 	r.lineNumbers[inc] = number
 	r.nextLine++
 	return number
-}
-
-func (r *reportBuilder) isCollapsible(inc *Incompatibility) bool {
-	if r.derivations[inc] > 1 {
-		return false
-	}
-	causes := inc.Causes()
-	if len(causes) != 2 {
-		return false
-	}
-	c1, c2 := causes[0], causes[1]
-	if isDerived(c1) == isDerived(c2) {
-		return false
-	}
-	derived := c1
-	if !isDerived(c1) {
-		derived = c2
-	}
-	derivedCauses := derived.Causes()
-	if len(derivedCauses) != 2 {
-		return false
-	}
-	dc1, dc2 := derivedCauses[0], derivedCauses[1]
-	var complexCause *Incompatibility
-	if isDerived(dc1) {
-		complexCause = dc1
-	} else if isDerived(dc2) {
-		complexCause = dc2
-	}
-	if complexCause != nil {
-		if _, hasLine := r.lineNumbers[complexCause]; hasLine {
-			return false
-		}
-	}
-	return true
 }
 
 func (r *reportBuilder) orderCauses(c1, c2 *Incompatibility) (*Incompatibility, *Incompatibility) {
@@ -156,16 +120,20 @@ func (r *reportBuilder) orderCauses(c1, c2 *Incompatibility) (*Incompatibility, 
 }
 
 func (r *reportBuilder) visit(inc *Incompatibility, conclusion bool) {
-	if !isDerived(inc) {
+	cause := inc.Cause()
+	conflictCause, ok := cause.(ConflictCause)
+	if !ok {
 		return
 	}
-	c1 := inc.Causes()[0]
-	c2 := inc.Causes()[1]
+	c1, c2 := conflictCause.A, conflictCause.B
 
 	numbered := conclusion || r.derivations[inc] > 1
 	isFinal := conclusion || inc == r.root
 
-	if isDerived(c1) && isDerived(c2) {
+	c1ConflictCause, c1IsConflict := c1.Cause().(ConflictCause)
+	c2ConflictCause, c2IsConflict := c2.Cause().(ConflictCause)
+
+	if c1IsConflict && c2IsConflict {
 		l1, ok1 := r.lineNumbers[c1]
 		l2, ok2 := r.lineNumbers[c2]
 
@@ -178,8 +146,8 @@ func (r *reportBuilder) visit(inc *Incompatibility, conclusion bool) {
 				Conclusion: inc,
 				Ref:        r.number(inc, numbered),
 				Final:      isFinal,
-				Cause1:     &Cause{Incompatibility: first, Ref: line1},
-				Cause2:     &Cause{Incompatibility: second, Ref: line2},
+				Cause1:     &ReportCause{Incompatibility: first, Ref: line1},
+				Cause2:     &ReportCause{Incompatibility: second, Ref: line2},
 			})
 			return
 		}
@@ -198,13 +166,13 @@ func (r *reportBuilder) visit(inc *Incompatibility, conclusion bool) {
 				Conclusion: inc,
 				Ref:        r.number(inc, numbered),
 				Final:      isFinal,
-				Cause1:     &Cause{Incompatibility: withLine, Ref: line},
+				Cause1:     &ReportCause{Incompatibility: withLine, Ref: line},
 			})
 			return
 		}
 
-		single1 := r.isSingleLine(c1)
-		single2 := r.isSingleLine(c2)
+		single1 := r.isSingleLine(c1ConflictCause)
+		single2 := r.isSingleLine(c2ConflictCause)
 		if single1 || single2 {
 			var first, second *Incompatibility
 			if single2 {
@@ -235,15 +203,17 @@ func (r *reportBuilder) visit(inc *Incompatibility, conclusion bool) {
 			Conclusion: inc,
 			Ref:        r.number(inc, numbered),
 			Final:      isFinal,
-			Cause1:     &Cause{Incompatibility: first, Ref: firstLine},
+			Cause1:     &ReportCause{Incompatibility: first, Ref: firstLine},
 		})
 		return
 	}
 
-	if isDerived(c1) != isDerived(c2) {
+	if c1IsConflict != c2IsConflict {
 		derived, external := c1, c2
-		if !isDerived(c1) {
+		derivedConflictCause := c1ConflictCause
+		if !c1IsConflict {
 			derived, external = c2, c1
+			derivedConflictCause = c2ConflictCause
 		}
 
 		if derivedLine, ok := r.lineNumbers[derived]; ok {
@@ -252,17 +222,21 @@ func (r *reportBuilder) visit(inc *Incompatibility, conclusion bool) {
 				Conclusion: inc,
 				Ref:        r.number(inc, numbered),
 				Final:      isFinal,
-				Cause1:     &Cause{Incompatibility: external},
-				Cause2:     &Cause{Incompatibility: derived, Ref: derivedLine},
+				Cause1:     &ReportCause{Incompatibility: external},
+				Cause2:     &ReportCause{Incompatibility: derived, Ref: derivedLine},
 			})
 			return
 		}
 
-		if r.isCollapsible(derived) {
-			derivedCauses := derived.Causes()
-			dc1, dc2 := derivedCauses[0], derivedCauses[1]
+		dc1, dc2 := derivedConflictCause.A, derivedConflictCause.B
+		_, dc1IsConflict := dc1.Cause().(ConflictCause)
+		_, dc2IsConflict := dc2.Cause().(ConflictCause)
+		_, dc1HasLine := r.lineNumbers[dc1]
+		_, dc2HasLine := r.lineNumbers[dc2]
+
+		if r.derivations[derived] <= 1 && ((dc1IsConflict && !dc2IsConflict && !dc1HasLine) || (dc2IsConflict && !dc1IsConflict && !dc2HasLine)) {
 			var priorDerived, priorExternal *Incompatibility
-			if isDerived(dc1) {
+			if dc1IsConflict {
 				priorDerived, priorExternal = dc1, dc2
 			} else {
 				priorDerived, priorExternal = dc2, dc1
@@ -273,8 +247,8 @@ func (r *reportBuilder) visit(inc *Incompatibility, conclusion bool) {
 				Conclusion: inc,
 				Ref:        r.number(inc, numbered),
 				Final:      isFinal,
-				Cause1:     &Cause{Incompatibility: priorExternal},
-				Cause2:     &Cause{Incompatibility: external},
+				Cause1:     &ReportCause{Incompatibility: priorExternal},
+				Cause2:     &ReportCause{Incompatibility: external},
 			})
 			return
 		}
@@ -285,7 +259,7 @@ func (r *reportBuilder) visit(inc *Incompatibility, conclusion bool) {
 			Conclusion: inc,
 			Ref:        r.number(inc, numbered),
 			Final:      isFinal,
-			Cause1:     &Cause{Incompatibility: external},
+			Cause1:     &ReportCause{Incompatibility: external},
 		})
 		return
 	}
@@ -296,7 +270,7 @@ func (r *reportBuilder) visit(inc *Incompatibility, conclusion bool) {
 		Conclusion: inc,
 		Ref:        r.number(inc, numbered),
 		Final:      isFinal,
-		Cause1:     &Cause{Incompatibility: first},
-		Cause2:     &Cause{Incompatibility: second},
+		Cause1:     &ReportCause{Incompatibility: first},
+		Cause2:     &ReportCause{Incompatibility: second},
 	})
 }

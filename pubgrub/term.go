@@ -10,6 +10,14 @@ type Term struct {
 	positive          bool
 }
 
+func NewTerm(pkg string, versionConstraint semver.Constraint, positive bool) Term {
+	return Term{
+		pkg:               pkg,
+		versionConstraint: versionConstraint,
+		positive:          positive,
+	}
+}
+
 func (t Term) Equal(other Term) bool {
 	return t.pkg == other.pkg && t.versionConstraint.Equal(other.versionConstraint) && t.positive == other.positive
 }

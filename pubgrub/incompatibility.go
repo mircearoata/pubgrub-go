@@ -6,9 +6,8 @@ import (
 )
 
 type Incompatibility struct {
-	terms     map[string]Term
-	causes    []*Incompatibility
-	dependant string
+	terms map[string]Term
+	cause IncompatibilityCause
 }
 
 func (in *Incompatibility) Terms() []Term {
@@ -22,8 +21,8 @@ func (in *Incompatibility) Terms() []Term {
 	return terms
 }
 
-func (in *Incompatibility) Causes() []*Incompatibility {
-	return in.causes
+func (in *Incompatibility) Cause() IncompatibilityCause {
+	return in.cause
 }
 
 func (in *Incompatibility) Packages() []string {
@@ -87,8 +86,8 @@ func (in *Incompatibility) relation(ps *partialSolution) (setRelation, *Term) {
 
 func (in *Incompatibility) makePriorCause(c *Incompatibility, satisfier string) *Incompatibility {
 	newIncompatibility := &Incompatibility{
-		terms:  make(map[string]Term),
-		causes: []*Incompatibility{in, c},
+		terms: make(map[string]Term),
+		cause: ConflictCause{A: in, B: c},
 	}
 	for _, t := range in.terms {
 		if t.pkg != satisfier {
