@@ -16,7 +16,7 @@ func (s mockSource) GetPackageVersions(pkg string) ([]PackageVersion, error) {
 	if v, ok := s.packages[pkg]; ok {
 		return v, nil
 	}
-	return nil, errors.New("package not found")
+	return nil, ErrPackageNotFound
 }
 
 func (s mockSource) PickVersion(_ string, versions []semver.Version) semver.Version {
@@ -513,7 +513,7 @@ func TestSolver_WhichIsForbidden(t *testing.T) {
 
 	result, err := Solve(source, "$$root$$")
 	testza.AssertNil(t, result)
-	expected := "Because every version of foo depends on bar \"^1.0.0\" which has no versions, every version of foo is forbidden.\nSo, because installing foo \"^1.0.0\", version solving failed."
+	expected := "Because every version of foo depends on bar \"^1.0.0\" which matches no versions, every version of foo is forbidden.\nSo, because installing foo \"^1.0.0\", version solving failed."
 	testza.AssertEqual(t, expected, err.Error())
 }
 
@@ -622,5 +622,302 @@ func TestSolver_CustomStrings(t *testing.T) {
 		)
 
 	rendered := reporter.Render(solverErr.Report())
-	testza.AssertEqual(t, "(Because) (install) foo \"^1.0.0\" which has no versions, (failed).", rendered)
+	expected := "(Because) (install) foo \"^1.0.0\" which matches no versions, (failed)."
+	testza.AssertEqual(t, expected, rendered)
+}
+
+func TestSolver_PackageNotFound(t *testing.T) {
+	t.Parallel()
+
+	t.Run("direct", func(t *testing.T) {
+		t.Parallel()
+
+		source := mockSource{
+			packages: map[string][]PackageVersion{
+				"$$root$$": {
+					{
+						Version: newVersion("1.0.0"),
+						Dependencies: map[string]semver.Constraint{
+							"foo": newConstraint("^1.0.0"),
+						},
+					},
+				},
+			},
+		}
+
+		result, err := Solve(source, "$$root$$")
+		testza.AssertNil(t, result)
+		expected := "Because installing foo \"^1.0.0\" which could not be found, version solving failed."
+		testza.AssertEqual(t, expected, err.Error())
+	})
+
+	t.Run("transitive", func(t *testing.T) {
+		t.Parallel()
+
+		source := mockSource{
+			packages: map[string][]PackageVersion{
+				"$$root$$": {
+					{
+						Version: newVersion("1.0.0"),
+						Dependencies: map[string]semver.Constraint{
+							"foo": newConstraint("^1.0.0"),
+						},
+					},
+				},
+				"foo": {
+					{
+						Version: newVersion("1.0.0"),
+						Dependencies: map[string]semver.Constraint{
+							"bar": newConstraint("^1.0.0"),
+						},
+					},
+				},
+			},
+		}
+
+		result, err := Solve(source, "$$root$$")
+		testza.AssertNil(t, result)
+		expected := "Because every version of foo depends on bar \"^1.0.0\" which could not be found, every version of foo is forbidden.\nSo, because installing foo \"^1.0.0\", version solving failed."
+		testza.AssertEqual(t, expected, err.Error())
+	})
+}
+
+func TestSolver_ForbiddenVersion(t *testing.T) {
+	t.Parallel()
+
+	t.Run("none allowed", func(t *testing.T) {
+		t.Parallel()
+
+		t.Run("direct", func(t *testing.T) {
+			t.Parallel()
+
+			source := mockSource{
+				packages: map[string][]PackageVersion{
+					"$$root$$": {
+						{
+							Version: newVersion("1.0.0"),
+							Dependencies: map[string]semver.Constraint{
+								"foo": newConstraint("^1.0.0"),
+							},
+						},
+					},
+					"foo": {
+						{
+							Version:         newVersion("1.0.0"),
+							ForbiddenReason: "is broken",
+						},
+					},
+				},
+			}
+
+			result, err := Solve(source, "$$root$$")
+			testza.AssertNil(t, result)
+			expected := "Because installing foo \"^1.0.0\" which is broken, version solving failed."
+			testza.AssertEqual(t, expected, err.Error())
+		})
+
+		t.Run("transitive", func(t *testing.T) {
+			t.Parallel()
+
+			source := mockSource{
+				packages: map[string][]PackageVersion{
+					"$$root$$": {
+						{
+							Version: newVersion("1.0.0"),
+							Dependencies: map[string]semver.Constraint{
+								"foo": newConstraint("^1.0.0"),
+							},
+						},
+					},
+					"foo": {
+						{
+							Version: newVersion("1.0.0"),
+							Dependencies: map[string]semver.Constraint{
+								"bar": newConstraint("^1.0.0"),
+							},
+						},
+					},
+					"bar": {
+						{
+							Version:         newVersion("1.0.0"),
+							ForbiddenReason: "is broken",
+						},
+					},
+				},
+			}
+
+			result, err := Solve(source, "$$root$$")
+			testza.AssertNil(t, result)
+			expected := "Because every version of foo depends on bar \"^1.0.0\" which is broken, every version of foo is forbidden.\nSo, because installing foo \"^1.0.0\", version solving failed."
+			testza.AssertEqual(t, expected, err.Error())
+		})
+
+		t.Run("requested non existent", func(t *testing.T) {
+			t.Parallel()
+
+			source := mockSource{
+				packages: map[string][]PackageVersion{
+					"$$root$$": {
+						{
+							Version: newVersion("1.0.0"),
+							Dependencies: map[string]semver.Constraint{
+								"foo": newConstraint("2.0.0"),
+							},
+						},
+					},
+					"foo": {
+						{
+							Version:         newVersion("1.0.0"),
+							ForbiddenReason: "is broken",
+						},
+					},
+				},
+			}
+
+			result, err := Solve(source, "$$root$$")
+			testza.AssertNil(t, result)
+			expected := "Because installing foo \"2.0.0\" which matches no versions, version solving failed."
+			testza.AssertEqual(t, expected, err.Error())
+		})
+	})
+
+	t.Run("some allowed", func(t *testing.T) {
+		t.Parallel()
+
+		t.Run("requested forbidden", func(t *testing.T) {
+			t.Parallel()
+
+			source := mockSource{
+				packages: map[string][]PackageVersion{
+					"$$root$$": {
+						{
+							Version: newVersion("1.0.0"),
+							Dependencies: map[string]semver.Constraint{
+								"foo": newConstraint(">=2.0.0"),
+							},
+						},
+					},
+					"foo": {
+						{
+							Version: newVersion("1.0.0"),
+						},
+						{
+							Version:         newVersion("2.0.0"),
+							ForbiddenReason: "is deprecated",
+						},
+					},
+				},
+			}
+
+			result, err := Solve(source, "$$root$$")
+			testza.AssertNil(t, result)
+			expected := "Because installing foo \">=2.0.0\" which is deprecated, version solving failed."
+			testza.AssertEqual(t, expected, err.Error())
+		})
+
+		t.Run("requested allowed", func(t *testing.T) {
+			t.Parallel()
+
+			source := mockSource{
+				packages: map[string][]PackageVersion{
+					"$$root$$": {
+						{
+							Version: newVersion("1.0.0"),
+							Dependencies: map[string]semver.Constraint{
+								"foo": newConstraint(">=1.0.0"),
+							},
+						},
+					},
+					"foo": {
+						{
+							Version:         newVersion("1.0.0"),
+							ForbiddenReason: "is deprecated",
+						},
+						{
+							Version: newVersion("2.0.0"),
+						},
+					},
+				},
+			}
+
+			result, err := Solve(source, "$$root$$")
+			testza.AssertNoError(t, err)
+			testza.AssertEqual(t, map[string]semver.Version{"foo": newVersion("2.0.0")}, result)
+		})
+
+		t.Run("requested non existent", func(t *testing.T) {
+			t.Parallel()
+
+			source := mockSource{
+				packages: map[string][]PackageVersion{
+					"$$root$$": {
+						{
+							Version: newVersion("1.0.0"),
+							Dependencies: map[string]semver.Constraint{
+								"foo": newConstraint("3.0.0"),
+							},
+						},
+					},
+					"foo": {
+						{
+							Version:         newVersion("1.0.0"),
+							ForbiddenReason: "is deprecated",
+						},
+						{
+							Version: newVersion("2.0.0"),
+						},
+					},
+				},
+			}
+
+			result, err := Solve(source, "$$root$$")
+			testza.AssertNil(t, result)
+			expected := "Because installing foo \"3.0.0\" which matches no versions, version solving failed."
+			testza.AssertEqual(t, expected, err.Error())
+		})
+	})
+
+	t.Run("multiple reasons", func(t *testing.T) {
+		t.Parallel()
+
+		source := mockSource{
+			packages: map[string][]PackageVersion{
+				"$$root$$": {
+					{
+						Version: newVersion("1.0.0"),
+						Dependencies: map[string]semver.Constraint{
+							"foo": newConstraint(">=1.0.0"),
+						},
+					},
+				},
+				"foo": {
+					{
+						Version:         newVersion("1.0.0"),
+						ForbiddenReason: "is broken",
+					},
+					{
+						Version:         newVersion("1.1.0"),
+						ForbiddenReason: "is broken",
+					},
+					{
+						Version:         newVersion("2.0.0"),
+						ForbiddenReason: "is deprecated",
+					},
+					{
+						Version:         newVersion("2.1.0"),
+						ForbiddenReason: "is deprecated",
+					},
+					{
+						Version:         newVersion("3.0.0"),
+						ForbiddenReason: "is broken",
+					},
+				},
+			},
+		}
+
+		result, err := Solve(source, "$$root$$")
+		testza.AssertNil(t, result)
+		expected := "Because foo \"<2.0.0 || >=3.0.0\" is broken and foo \"^2.0.0\" is deprecated, every version of foo is forbidden.\nSo, because installing foo \">=1.0.0\", version solving failed."
+		testza.AssertEqual(t, expected, err.Error())
+	})
 }

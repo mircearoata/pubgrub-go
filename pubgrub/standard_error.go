@@ -307,6 +307,12 @@ func (r *StandardTextReporter) whichCauseString(priorStr string, latter ReportCa
 	if _, ok := latter.Incompatibility.Cause().(NoVersionsCause); ok {
 		return fmt.Sprintf(r.strings.WhichNoVersions, priorStr)
 	}
+	if _, ok := latter.Incompatibility.Cause().(PackageNotFoundCause); ok {
+		return fmt.Sprintf(r.strings.WhichNotFound, priorStr)
+	}
+	if typedCause, ok := latter.Incompatibility.Cause().(PackageVersionForbiddenCause); ok {
+		return fmt.Sprintf(r.strings.WhichIsForbiddenReason, priorStr, typedCause.Reason)
+	}
 	res := fmt.Sprintf(r.strings.WhichIsForbidden, priorStr)
 	if latter.Ref > 0 {
 		res = fmt.Sprintf(r.strings.CauseRef, res, latter.Ref)

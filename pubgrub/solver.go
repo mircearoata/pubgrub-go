@@ -179,18 +179,68 @@ func (s *solver) decision() (string, bool, error) {
 
 	versions, err := s.source.GetPackageVersions(t.pkg)
 	if err != nil {
+		if errors.Is(err, ErrPackageNotFound) {
+			s.addIncompatibility(&Incompatibility{
+				terms: map[string]Term{pkg: {pkg: pkg, versionConstraint: semver.AnyConstraint, positive: true}},
+				cause: PackageNotFoundCause{Pkg: pkg},
+			})
+			return pkg, false, nil
+		}
 		return pkg, false, errors.Wrap(err, "failed to get package versions")
 	}
 
-	availableVersions := make([]semver.Version, 0, len(versions))
-	for _, v := range versions {
-		availableVersions = append(availableVersions, v.Version)
+	if len(versions) == 0 {
+		s.addIncompatibility(&Incompatibility{
+			terms: map[string]Term{pkg: {pkg: pkg, versionConstraint: semver.AnyConstraint, positive: true}},
+			cause: NoVersionsCause{Pkg: pkg, Constraint: semver.AnyConstraint},
+		})
+		return pkg, false, nil
 	}
 
 	// Sort versions in ascending order
-	slices.SortFunc(availableVersions, func(a, b semver.Version) int {
-		return a.Compare(b)
+	slices.SortFunc(versions, func(a, b PackageVersion) int {
+		return a.Version.Compare(b.Version)
 	})
+
+	allVersions := make([]semver.Version, 0, len(versions))
+	for _, v := range versions {
+		allVersions = append(allVersions, v.Version)
+	}
+
+	var forbiddenVersions []PackageVersion
+	var allowedVersions []PackageVersion
+	for _, v := range versions {
+		if v.ForbiddenReason != "" {
+			forbiddenVersions = append(forbiddenVersions, v)
+		} else {
+			allowedVersions = append(allowedVersions, v)
+		}
+	}
+
+	versionsForbiddenBy := make(map[string][]semver.Version)
+	for _, v := range forbiddenVersions {
+		versionsForbiddenBy[v.ForbiddenReason] = append(versionsForbiddenBy[v.ForbiddenReason], v.Version)
+	}
+
+	versionsForbiddenByKeys := make([]string, 0, len(versionsForbiddenBy))
+	for cause := range versionsForbiddenBy {
+		versionsForbiddenByKeys = append(versionsForbiddenByKeys, cause)
+	}
+	slices.Sort(versionsForbiddenByKeys)
+
+	for _, cause := range versionsForbiddenByKeys {
+		versions := versionsForbiddenBy[cause]
+		pkgRange := semver.NewConstraintFromVersionSubset(versions, allVersions)
+		s.addIncompatibility(&Incompatibility{
+			terms: map[string]Term{pkg: {pkg: pkg, versionConstraint: pkgRange, positive: true}},
+			cause: PackageVersionForbiddenCause{Reason: cause, Pkg: pkg, PkgRange: pkgRange},
+		})
+	}
+
+	availableVersions := make([]semver.Version, 0, len(allowedVersions))
+	for _, v := range allowedVersions {
+		availableVersions = append(availableVersions, v.Version)
+	}
 
 	var compatibleVersions []semver.Version
 	for _, v := range availableVersions {
@@ -199,7 +249,16 @@ func (s *solver) decision() (string, bool, error) {
 		}
 	}
 
-	if len(versions) == 0 || len(compatibleVersions) == 0 {
+	if len(compatibleVersions) == 0 {
+		hasForbiddenMatching := slices.ContainsFunc(allVersions, func(v semver.Version) bool {
+			return t.versionConstraint.Contains(v)
+		})
+		if hasForbiddenMatching {
+			// We already added incompatibilities for forbidden versions above,
+			// and we shouldn't consider this case as a "no versions" case,
+			// so those incompatibilities are used to explain the conflict.
+			return pkg, false, nil
+		}
 		s.addIncompatibility(&Incompatibility{
 			terms: map[string]Term{pkg: *t},
 			cause: NoVersionsCause{Pkg: pkg, Constraint: t.Constraint()},
@@ -240,7 +299,7 @@ func (s *solver) decision() (string, bool, error) {
 		slices.SortFunc(versionsWithThisDependency, func(a, b semver.Version) int {
 			return a.Compare(b)
 		})
-		pkgRange := semver.NewConstraintFromVersionSubset(versionsWithThisDependency, availableVersions)
+		pkgRange := semver.NewConstraintFromVersionSubset(versionsWithThisDependency, allVersions)
 		s.addIncompatibility(&Incompatibility{
 			terms: map[string]Term{
 				pkg: {
@@ -274,7 +333,7 @@ func (s *solver) decision() (string, bool, error) {
 		slices.SortFunc(versionsWithThisDependency, func(a, b semver.Version) int {
 			return a.Compare(b)
 		})
-		pkgRange := semver.NewConstraintFromVersionSubset(versionsWithThisDependency, availableVersions)
+		pkgRange := semver.NewConstraintFromVersionSubset(versionsWithThisDependency, allVersions)
 		s.addIncompatibility(&Incompatibility{
 			terms: map[string]Term{
 				pkg: {

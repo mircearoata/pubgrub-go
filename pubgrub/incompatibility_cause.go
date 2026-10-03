@@ -27,9 +27,23 @@ type NoVersionsCause struct {
 
 func (NoVersionsCause) cause() {}
 
+type PackageNotFoundCause struct {
+	Pkg string
+}
+
+func (PackageNotFoundCause) cause() {}
+
 type ConflictCause struct {
 	A *Incompatibility
 	B *Incompatibility
 }
 
 func (ConflictCause) cause() {}
+
+type PackageVersionForbiddenCause struct {
+	Pkg      string
+	PkgRange semver.Constraint
+	Reason   string
+}
+
+func (PackageVersionForbiddenCause) cause() {}

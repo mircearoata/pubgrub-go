@@ -23,8 +23,10 @@ type StandardCauseStrings struct {
 	WhichDependsOn string
 	WhichRequires  string
 
-	WhichIsForbidden string
-	WhichNoVersions  string
+	WhichIsForbidden       string
+	WhichNoVersions        string
+	WhichNotFound          string
+	WhichIsForbiddenReason string
 
 	Alternative string
 }
@@ -45,8 +47,10 @@ var DefaultCauseStrings = StandardCauseStrings{
 	WhichDependsOn: "%s which depends on %s",
 	WhichRequires:  "%s which requires %s",
 
-	WhichIsForbidden: "%s which is forbidden",
-	WhichNoVersions:  "%s which has no versions",
+	WhichIsForbidden:       "%s which is forbidden",
+	WhichNoVersions:        "%s which matches no versions",
+	WhichNotFound:          "%s which could not be found",
+	WhichIsForbiddenReason: "%s which %s",
 
 	Alternative: " or ",
 }
@@ -62,7 +66,9 @@ type StandardIncompatibilityStrings struct {
 	IsForbidden       string
 	IsRequired        string
 
-	NoVersions string
+	NoVersions        string
+	NotFound          string
+	IsForbiddenReason string
 
 	IncompatibleWith string
 	Either           string
@@ -86,7 +92,9 @@ var DefaultIncompatibilityStrings = StandardIncompatibilityStrings{
 	IsForbidden:       "%s is forbidden",
 	IsRequired:        "%s is required",
 
-	NoVersions: "%s has no versions",
+	NoVersions:        "%s matches no versions",
+	NotFound:          "%s could not be found",
+	IsForbiddenReason: "%s %s",
 
 	IncompatibleWith: "%s is incompatible with %s",
 	Either:           "either %s or %s",
@@ -211,6 +219,10 @@ func (w StandardIncompatibilityStringer) IncompatibilityString(c *Incompatibilit
 		return fmt.Sprintf(w.strings.DependsOn, termStringer.Term(typedCause.Pkg, typedCause.PkgRange, true), termStringer.Term(typedCause.Target, typedCause.Constraint, false))
 	case NoVersionsCause:
 		return fmt.Sprintf(w.strings.NoVersions, termStringer.Term(typedCause.Pkg, typedCause.Constraint, false))
+	case PackageNotFoundCause:
+		return fmt.Sprintf(w.strings.NotFound, termStringer.Term(typedCause.Pkg, semver.AnyConstraint, false))
+	case PackageVersionForbiddenCause:
+		return fmt.Sprintf(w.strings.IsForbiddenReason, termStringer.Term(typedCause.Pkg, typedCause.PkgRange, true), typedCause.Reason)
 	}
 
 	terms := c.Terms()
