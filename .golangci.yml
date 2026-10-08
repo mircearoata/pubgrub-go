@@ -1,27 +1,37 @@
+version: "2"
 linters:
-  disable-all: true
+  default: none
   enable:
-    - errcheck
-    - gosimple
-    - govet
-    - ineffassign
-    - staticcheck
-    - typecheck
-    - unused
     - bidichk
     - contextcheck
     - durationcheck
+    - errcheck
     - errorlint
     - goconst
-    - goimports
-    - revive
-    - misspell
-    - prealloc
-    - whitespace
-    - wrapcheck
-    - gci
     - gocritic
-    - gofumpt
+    - govet
+    - ineffassign
+    - misspell
     - nonamedreturns
     - paralleltest
+    - prealloc
+    - revive
+    - staticcheck
     - tparallel
+    - unused
+    - whitespace
+    - wrapcheck
+  settings:
+    goconst:
+      ignore-tests: true
+  exclusions:
+    presets:
+      - comments
+      - std-error-handling
+      - common-false-positives
+      - legacy
+formatters:
+  enable:
+    - gci
+    - gofumpt
+    - goimports
