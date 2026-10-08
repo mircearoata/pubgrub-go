@@ -1,6 +1,6 @@
 module github.com/mircearoata/pubgrub-go
 
-go 1.21
+go 1.23
 
 require github.com/MarvinJWendt/testza v0.5.2
 

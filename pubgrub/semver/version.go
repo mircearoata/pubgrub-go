@@ -1,11 +1,14 @@
 package semver
 
 import (
+	"cmp"
 	"fmt"
 	"regexp"
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/mircearoata/pubgrub-go/pubgrub/util"
 )
 
 type Version struct {
@@ -47,41 +50,31 @@ func NewVersion(v string) (Version, error) {
 }
 
 func (v Version) Compare(other Version) int {
-	if v.major != other.major {
-		return v.major - other.major
-	}
-	if v.minor != other.minor {
-		return v.minor - other.minor
-	}
-	if v.patch != other.patch {
-		return v.patch - other.patch
-	}
-	if !v.IsPrerelease() && other.IsPrerelease() {
-		return 1
-	}
-	if v.IsPrerelease() && !other.IsPrerelease() {
-		return -1
-	}
-	// both are pre-releases or releases
-	return slices.CompareFunc(v.pre, other.pre, func(a, b string) int {
-		aNum, aErr := strconv.Atoi(a)
-		bNum, bErr := strconv.Atoi(b)
-		if aErr == nil && bErr == nil {
-			// both are numbers
-			return aNum - bNum
-		}
-		if aErr != nil && bErr != nil {
-			// both are strings
-			return strings.Compare(a, b)
-		}
-		// numbers go before strings
-		if aErr != nil {
-			// a is a string, b is a number
-			return 1
-		}
-		// a is a number, b is a string
-		return -1
-	})
+	return cmp.Or(
+		cmp.Compare(v.major, other.major),
+		cmp.Compare(v.minor, other.minor),
+		cmp.Compare(v.patch, other.patch),
+		-util.CompareBool(v.IsPrerelease(), other.IsPrerelease()),
+		slices.CompareFunc(v.pre, other.pre, func(a, b string) int {
+			aNum, aErr := strconv.Atoi(a)
+			bNum, bErr := strconv.Atoi(b)
+			if aErr == nil && bErr == nil {
+				// both are numbers
+				return cmp.Compare(aNum, bNum)
+			}
+			if aErr != nil && bErr != nil {
+				// both are strings
+				return strings.Compare(a, b)
+			}
+			// numbers go before strings
+			if aErr != nil {
+				// a is a string, b is a number
+				return 1
+			}
+			// a is a number, b is a string
+			return -1
+		}),
+	)
 }
 
 func (v Version) Inverse() Constraint {

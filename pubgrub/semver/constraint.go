@@ -247,7 +247,7 @@ func (v Constraint) Intersect(other Constraint) Constraint {
 }
 
 func (v Constraint) Union(other Constraint) Constraint {
-	return makeCanonicalConstraint(append(v.ranges, other.ranges...), v.raw+" || "+other.raw)
+	return makeCanonicalConstraint(slices.Concat(v.ranges, other.ranges), v.raw+" || "+other.raw)
 }
 
 func (v Constraint) Difference(other Constraint) Constraint {
