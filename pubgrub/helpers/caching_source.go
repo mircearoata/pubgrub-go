@@ -9,7 +9,7 @@ import (
 type cacheInstance struct {
 	Versions []pubgrub.PackageVersion
 	Error    error
-	Waiter   chan bool
+	Waiter   chan struct{}
 }
 
 type CachingSource struct {
@@ -28,7 +28,7 @@ func (s *CachingSource) GetPackageVersions(pkg string) ([]pubgrub.PackageVersion
 	actual, loaded := s.cache.LoadOrStore(pkg, &cacheInstance{
 		Versions: nil,
 		Error:    nil,
-		Waiter:   make(chan bool),
+		Waiter:   make(chan struct{}),
 	})
 
 	instance := actual.(*cacheInstance)
