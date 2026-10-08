@@ -209,16 +209,16 @@ func (v Constraint) canonical() Constraint {
 
 	// At this point no two ranges are overlapping, therefore no two ranges have an equal lower bound
 	slices.SortFunc(result.ranges, func(a, b versionRange) int {
-		lowerA := &Version{0, 0, 0, nil, nil, ""}
-		lowerB := &Version{0, 0, 0, nil, nil, ""}
-		if a.lowerBound != nil {
-			lowerA = a.lowerBound
+		if a.lowerBound == nil && b.lowerBound == nil {
+			return 0
 		}
-		if b.lowerBound != nil {
-			lowerB = b.lowerBound
+		if a.lowerBound == nil {
+			return -1
 		}
-
-		return lowerA.Compare(*lowerB)
+		if b.lowerBound == nil {
+			return 1
+		}
+		return a.lowerBound.Compare(*b.lowerBound)
 	})
 
 	return result

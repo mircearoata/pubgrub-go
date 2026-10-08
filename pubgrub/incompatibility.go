@@ -94,7 +94,7 @@ func (in *Incompatibility) makePriorCause(c *Incompatibility, satisfier string) 
 			newIncompatibility.add(t)
 		}
 	}
-	for _, t := range c.Terms() {
+	for _, t := range c.terms {
 		if t.pkg != satisfier {
 			newIncompatibility.add(t)
 		}
