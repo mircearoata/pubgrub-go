@@ -1,12 +1,13 @@
 package pubgrub
 
 import (
+	"errors"
+	"fmt"
 	"maps"
 	"slices"
 
 	"github.com/mircearoata/pubgrub-go/pubgrub/semver"
 	"github.com/mircearoata/pubgrub-go/pubgrub/util"
-	"github.com/pkg/errors"
 )
 
 type solver struct {
@@ -89,7 +90,7 @@ func Solve(source Source, rootPkg string, opts ...SolveOption) (map[string]semve
 		var done bool
 		next, done, err = s.decision()
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to make decision")
+			return nil, fmt.Errorf("failed to make decision: %w", err)
 		}
 		if done {
 			break
@@ -222,7 +223,7 @@ func (s *solver) decision() (string, bool, error) {
 			})
 			return pkg, false, nil
 		}
-		return pkg, false, errors.Wrap(err, "failed to get package versions")
+		return pkg, false, fmt.Errorf("failed to get package versions: %w", err)
 	}
 
 	if len(versions) == 0 {

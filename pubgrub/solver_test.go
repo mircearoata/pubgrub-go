@@ -1,11 +1,11 @@
 package pubgrub
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/MarvinJWendt/testza"
 	"github.com/mircearoata/pubgrub-go/pubgrub/semver"
-	"github.com/pkg/errors"
 )
 
 type mockSource struct {

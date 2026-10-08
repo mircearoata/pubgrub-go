@@ -2,10 +2,7 @@ module github.com/mircearoata/pubgrub-go
 
 go 1.21
 
-require (
-	github.com/MarvinJWendt/testza v0.5.2
-	github.com/pkg/errors v0.9.1
-)
+require github.com/MarvinJWendt/testza v0.5.2
 
 require (
 	atomicgo.dev/assert v0.0.2 // indirect

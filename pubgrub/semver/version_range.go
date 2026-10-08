@@ -1,9 +1,8 @@
 package semver
 
 import (
+	"fmt"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 var rangeAny = versionRange{raw: "*"}
@@ -26,7 +25,7 @@ func makeVersionRange(v string) (versionRange, error) {
 	}
 	v, err := deSugarRange(v)
 	if err != nil {
-		return versionRange{}, errors.Wrapf(err, "failed to de-sugar range %s", v)
+		return versionRange{}, fmt.Errorf("failed to de-sugar range %s: %w", v, err)
 	}
 	sections := strings.Split(v, " ")
 	for _, s := range sections {
@@ -43,7 +42,7 @@ func makeVersionRange(v string) (versionRange, error) {
 			}
 			ver, err := NewVersion(versionString)
 			if err != nil {
-				return versionRange{}, errors.Wrapf(err, "invalid version string parsing primitive range %s", s)
+				return versionRange{}, fmt.Errorf("invalid version string parsing primitive range %s: %w", s, err)
 			}
 			result = result.withLowerBound(ver, inclusive)
 			continue
@@ -58,7 +57,7 @@ func makeVersionRange(v string) (versionRange, error) {
 			}
 			ver, err := NewVersion(versionString)
 			if err != nil {
-				return versionRange{}, errors.Wrapf(err, "invalid version string parsing primitive range %s", s)
+				return versionRange{}, fmt.Errorf("invalid version string parsing primitive range %s: %w", s, err)
 			}
 			result = result.withUpperBound(ver, inclusive)
 			continue
@@ -66,7 +65,7 @@ func makeVersionRange(v string) (versionRange, error) {
 		// exact version
 		ver, err := NewVersion(strings.TrimPrefix(s, "="))
 		if err != nil {
-			return versionRange{}, errors.Wrapf(err, "invalid version string parsing primitive range %s", s)
+			return versionRange{}, fmt.Errorf("invalid version string parsing primitive range %s: %w", s, err)
 		}
 		result = result.withLowerBound(ver, true)
 		result = result.withUpperBound(ver, true)
