@@ -234,10 +234,13 @@ func (s *solver) decision() (string, bool, error) {
 		return pkg, false, nil
 	}
 
-	// Sort versions in ascending order
-	slices.SortFunc(versions, func(a, b PackageVersion) int {
-		return a.Version.Compare(b.Version)
-	})
+	// Sort versions in ascending order if not already sorted
+	if !slices.IsSortedFunc(versions, func(a, b PackageVersion) int { return a.Version.Compare(b.Version) }) {
+		versions = slices.Clone(versions)
+		slices.SortFunc(versions, func(a, b PackageVersion) int {
+			return a.Version.Compare(b.Version)
+		})
+	}
 
 	allVersions := make([]semver.Version, 0, len(versions))
 	for _, v := range versions {
@@ -333,9 +336,6 @@ func (s *solver) decision() (string, bool, error) {
 				versionsWithThisDependency = append(versionsWithThisDependency, v.Version)
 			}
 		}
-		slices.SortFunc(versionsWithThisDependency, func(a, b semver.Version) int {
-			return a.Compare(b)
-		})
 		pkgRange := semver.NewConstraintFromVersionSubset(versionsWithThisDependency, allVersions)
 		s.addIncompatibility(&Incompatibility{
 			terms: map[string]Term{
@@ -367,9 +367,6 @@ func (s *solver) decision() (string, bool, error) {
 				versionsWithThisDependency = append(versionsWithThisDependency, v.Version)
 			}
 		}
-		slices.SortFunc(versionsWithThisDependency, func(a, b semver.Version) int {
-			return a.Compare(b)
-		})
 		pkgRange := semver.NewConstraintFromVersionSubset(versionsWithThisDependency, allVersions)
 		s.addIncompatibility(&Incompatibility{
 			terms: map[string]Term{
